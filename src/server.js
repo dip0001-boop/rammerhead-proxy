@@ -1,136 +1,222 @@
 #!/usr/bin/env node
 
+/**
+ * BULLETPROOF RAMMERHEAD SERVER
+ * This version catches EVERY possible error and logs it clearly
+ */
+
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 
 const port = process.env.PORT || 8081;
 
-console.log('=== Rammerhead Server Starting ===');
-console.log('Node version:', process.version);
-console.log('Port:', port);
+// Write to stdout with timestamps
+function log(level, msg) {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [${level}] ${msg}`);
+}
+
+// Catch ALL errors, even ones we don't expect
+process.on('uncaughtException', (err) => {
+    log('FATAL', `UNCAUGHT EXCEPTION: ${err.message}`);
+    log('FATAL', err.stack);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    log('FATAL', `UNHANDLED REJECTION: ${reason}`);
+    if (reason && reason.stack) log('FATAL', reason.stack);
+    process.exit(1);
+});
+
+log('INFO', '=== RAMMERHEAD SERVER STARTING ===');
+log('INFO', `Node: ${process.version}`);
+log('INFO', `Port: ${port}`);
+log('INFO', `CWD: ${process.cwd()}`);
+
+// Step 1: Verify files exist
+log('INFO', '[1/6] Verifying file structure...');
+const requiredFiles = [
+    './server/classes/RammerheadProxy.js',
+    './server/classes/RammerheadSession.js',
+    './server/classes/RammerheadMemoryStore.js',
+    './server/util/addStaticDirToProxy.js'
+];
+
+for (const file of requiredFiles) {
+    const fullPath = path.join(__dirname, file);
+    if (!fs.existsSync(fullPath)) {
+        log('ERROR', `MISSING FILE: ${fullPath}`);
+        process.exit(1);
+    }
+    log('INFO', `✓ Found ${file}`);
+}
+
+// Step 2: Load modules
+log('INFO', '[2/6] Loading modules...');
+let RammerheadProxy, RammerheadSession, RammerheadSessionMemoryStore, addStaticFilesToProxy;
 
 try {
-    console.log('[1/5] Loading Rammerhead modules...');
-    
-    // Load the classes and utilities (but don't instantiate them yet)
-    const RammerheadProxy = require('./server/classes/RammerheadProxy');
-    const RammerheadSession = require('./server/classes/RammerheadSession');
-    const RammerheadSessionMemoryStore = require('./server/classes/RammerheadMemoryStore');
-    const addStaticFilesToProxy = require('./server/util/addStaticDirToProxy');
-    
-    console.log('[1/5] ✓ Modules loaded');
+    RammerheadProxy = require('./server/classes/RammerheadProxy');
+    log('INFO', '✓ RammerheadProxy loaded');
+} catch (err) {
+    log('ERROR', `Failed to load RammerheadProxy: ${err.message}`);
+    log('ERROR', err.stack);
+    process.exit(1);
+}
 
-    console.log('[2/5] Creating session store...');
-    const sessionStore = new RammerheadSessionMemoryStore();
-    console.log('[2/5] ✓ Session store created');
+try {
+    RammerheadSession = require('./server/classes/RammerheadSession');
+    log('INFO', '✓ RammerheadSession loaded');
+} catch (err) {
+    log('ERROR', `Failed to load RammerheadSession: ${err.message}`);
+    log('ERROR', err.stack);
+    process.exit(1);
+}
 
-    console.log('[3/5] Creating Rammerhead session...');
-    const session = new RammerheadSession({
+try {
+    RammerheadSessionMemoryStore = require('./server/classes/RammerheadMemoryStore');
+    log('INFO', '✓ RammerheadSessionMemoryStore loaded');
+} catch (err) {
+    log('ERROR', `Failed to load RammerheadSessionMemoryStore: ${err.message}`);
+    log('ERROR', err.stack);
+    process.exit(1);
+}
+
+try {
+    addStaticFilesToProxy = require('./server/util/addStaticDirToProxy');
+    log('INFO', '✓ addStaticFilesToProxy loaded');
+} catch (err) {
+    log('ERROR', `Failed to load addStaticFilesToProxy: ${err.message}`);
+    log('ERROR', err.stack);
+    process.exit(1);
+}
+
+// Step 3: Create session store
+log('INFO', '[3/6] Creating session store...');
+let sessionStore;
+try {
+    sessionStore = new RammerheadSessionMemoryStore();
+    log('INFO', '✓ Session store created');
+} catch (err) {
+    log('ERROR', `Failed to create session store: ${err.message}`);
+    log('ERROR', err.stack);
+    process.exit(1);
+}
+
+// Step 4: Create session
+log('INFO', '[4/6] Creating session...');
+let session;
+try {
+    session = new RammerheadSession({
         store: sessionStore,
     });
-    console.log('[3/5] ✓ Session created');
+    log('INFO', '✓ Session created');
+} catch (err) {
+    log('ERROR', `Failed to create session: ${err.message}`);
+    log('ERROR', err.stack);
+    process.exit(1);
+}
 
-    console.log('[4/5] Creating proxy...');
-    const proxy = new RammerheadProxy({
+// Step 5: Create proxy
+log('INFO', '[5/6] Creating proxy...');
+let proxy;
+try {
+    proxy = new RammerheadProxy({
         session: session,
         dontListen: true,
         port: port,
         bindingAddress: '0.0.0.0',
         crossDomainPort: null,
     });
-    console.log('[4/5] ✓ Proxy created');
-
-    // Try to add static files
-    try {
-        const publicPath = path.join(__dirname, '..', 'public');
-        addStaticFilesToProxy(publicPath, proxy);
-        console.log('[4/5] ✓ Static files added');
-    } catch (e) {
-        console.log('[4/5] ℹ No public directory found (this is OK)');
-    }
-
-    console.log('[5/5] Creating HTTP server...');
-    
-    // Create HTTP server that delegates to the proxy
-    const server = http.createServer((req, res) => {
-        try {
-            proxy.request(req, res);
-        } catch (err) {
-            console.error('Request error:', err.message);
-            if (!res.headersSent) {
-                res.writeHead(500, { 'Content-Type': 'text/plain' });
-                res.end('Internal Server Error');
-            }
-        }
-    });
-
-    // Handle WebSocket upgrades
-    server.on('upgrade', (req, socket, head) => {
-        try {
-            proxy.upgrade(req, socket, head);
-        } catch (err) {
-            console.error('Upgrade error:', err.message);
-            if (socket.writable) {
-                socket.destroy();
-            }
-        }
-    });
-
-    server.on('error', (err) => {
-        console.error('Server error:', err);
-    });
-
-    server.on('clientError', (err, socket) => {
-        console.error('Client error:', err.message);
-        if (socket.writable) {
-            socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
-        }
-    });
-
-    console.log('[5/5] ✓ HTTP server created');
-
-    // Start listening
-    server.listen(port, '0.0.0.0', () => {
-        console.log('');
-        console.log('╔════════════════════════════════════════╗');
-        console.log('║  ✓ Rammerhead Server Ready!           ║');
-        console.log('║  Listening on 0.0.0.0:' + String(port).padEnd(24) + '║');
-        console.log('╚════════════════════════════════════════╝');
-        console.log('');
-    });
-
-    // Graceful shutdown
-    const shutdown = (signal) => {
-        console.log(`\n${signal} received. Shutting down gracefully...`);
-        server.close(() => {
-            console.log('Server closed');
-            process.exit(0);
-        });
-        
-        setTimeout(() => {
-            console.error('Forced shutdown after timeout');
-            process.exit(1);
-        }, 10000);
-    };
-
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
-
-    process.on('uncaughtException', (err) => {
-        console.error('\n!!! UNCAUGHT EXCEPTION !!!');
-        console.error(err);
-        process.exit(1);
-    });
-
-    process.on('unhandledRejection', (reason, promise) => {
-        console.error('\n!!! UNHANDLED REJECTION !!!');
-        console.error('Reason:', reason);
-        process.exit(1);
-    });
-
+    log('INFO', '✓ Proxy created');
 } catch (err) {
-    console.error('\n!!! FATAL ERROR !!!');
-    console.error('Message:', err.message);
-    console.error('Stack:', err.stack);
+    log('ERROR', `Failed to create proxy: ${err.message}`);
+    log('ERROR', err.stack);
     process.exit(1);
 }
+
+// Try to add static files (optional)
+try {
+    const publicPath = path.join(__dirname, '..', 'public');
+    if (fs.existsSync(publicPath)) {
+        addStaticFilesToProxy(publicPath, proxy);
+        log('INFO', `✓ Static files added from ${publicPath}`);
+    } else {
+        log('INFO', 'ℹ No public directory (this is fine)');
+    }
+} catch (err) {
+    log('WARN', `Static files error (non-fatal): ${err.message}`);
+}
+
+// Step 6: Create HTTP server
+log('INFO', '[6/6] Creating HTTP server...');
+
+const server = http.createServer((req, res) => {
+    try {
+        proxy.request(req, res);
+    } catch (err) {
+        log('ERROR', `Request error: ${err.message}`);
+        if (!res.headersSent) {
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            res.end('Internal Server Error');
+        }
+    }
+});
+
+server.on('upgrade', (req, socket, head) => {
+    try {
+        proxy.upgrade(req, socket, head);
+    } catch (err) {
+        log('ERROR', `Upgrade error: ${err.message}`);
+        if (socket.writable) socket.destroy();
+    }
+});
+
+server.on('error', (err) => {
+    log('ERROR', `Server error: ${err.message}`);
+    log('ERROR', err.stack);
+});
+
+server.on('clientError', (err, socket) => {
+    log('WARN', `Client error: ${err.message}`);
+    if (socket.writable) {
+        socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+    }
+});
+
+// START LISTENING
+try {
+    server.listen(port, '0.0.0.0', () => {
+        log('INFO', '');
+        log('SUCCESS', '╔══════════════════════════════════════╗');
+        log('SUCCESS', '║  ✓ RAMMERHEAD SERVER READY!         ║');
+        log('SUCCESS', `║  Listening on 0.0.0.0:${String(port).padEnd(23)}║`);
+        log('SUCCESS', '╚══════════════════════════════════════╝');
+        log('INFO', '');
+    });
+} catch (err) {
+    log('FATAL', `Failed to start server: ${err.message}`);
+    log('FATAL', err.stack);
+    process.exit(1);
+}
+
+// Graceful shutdown
+const shutdown = (signal) => {
+    log('INFO', `${signal} received - shutting down gracefully...`);
+    server.close(() => {
+        log('INFO', 'Server closed');
+        process.exit(0);
+    });
+    
+    setTimeout(() => {
+        log('ERROR', 'Shutdown timeout - forcing exit');
+        process.exit(1);
+    }, 10000);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+log('INFO', 'Server initialization complete. Waiting for requests...');
