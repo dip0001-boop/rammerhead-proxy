@@ -15,8 +15,8 @@ COPY . .
 # Build Rammerhead
 RUN npm run build
 
-# Expose the port Rammerhead uses
+# Expose Rammerhead's port
 EXPOSE 8080
 
-# Start Rammerhead
-CMD ["npm", "start"]
+# Start the Rammerhead server
+CMD ["node", "src/server.js"]
