@@ -1,105 +1,131 @@
+#!/usr/bin/env node
+
 const http = require('http');
 const path = require('path');
 
-// Import Rammerhead modules
-const {
-    RammerheadProxy,
-    RammerheadSession,
-    RammerheadSessionMemoryStore,
-    addStaticFilesToProxy
-} = require('./server/index.js');
+console.log('=== Rammerhead Server Starting ===');
+console.log('Node version:', process.version);
+console.log('Working directory:', process.cwd());
 
 const port = process.env.PORT || 8081;
 
+// Wrap everything in try-catch to see errors
 try {
-    console.log('Starting Rammerhead proxy server...');
-    
-    // Create session store (in-memory)
-    const sessionStore = new RammerheadSessionMemoryStore();
-    console.log('Session store created');
+    console.log('[1/5] Loading Rammerhead modules...');
+    const {
+        RammerheadProxy,
+        RammerheadSession,
+        RammerheadSessionMemoryStore,
+        addStaticFilesToProxy
+    } = require('./server/index.js');
+    console.log('[1/5] ✓ Modules loaded successfully');
 
-    // Create Rammerhead session
+    console.log('[2/5] Creating session store...');
+    const sessionStore = new RammerheadSessionMemoryStore();
+    console.log('[2/5] ✓ Session store created');
+
+    console.log('[3/5] Creating Rammerhead session...');
     const session = new RammerheadSession({
         store: sessionStore,
     });
-    console.log('Session created');
+    console.log('[3/5] ✓ Session created');
 
-    // Create proxy
+    console.log('[4/5] Creating proxy...');
     const proxy = new RammerheadProxy({
         session: session,
     });
-    console.log('Proxy created');
+    console.log('[4/5] ✓ Proxy created');
 
-    // Try to add static files from public directory
+    // Try to add static files
     try {
         const publicPath = path.join(__dirname, '..', 'public');
         addStaticFilesToProxy(publicPath, proxy);
-        console.log('Static files added from public directory');
-    } catch (e) {
-        console.log('No public directory or static files - continuing without them');
+        console.log('[4/5] ✓ Static files added from:', publicPath);
+    } catch (staticErr) {
+        console.log('[4/5] ℹ No public directory found (this is OK)');
     }
 
-    // Create HTTP server
+    console.log('[5/5] Creating HTTP server...');
     const server = http.createServer((req, res) => {
         try {
             proxy.request(req, res);
         } catch (err) {
-            console.error('Error handling request:', err);
-            res.writeHead(500, { 'Content-Type': 'text/plain' });
-            res.end('Internal Server Error');
+            console.error('Request error:', err.message);
+            if (!res.headersSent) {
+                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.end('Internal Server Error');
+            }
         }
     });
 
-    // Handle upgrade for WebSocket
+    // Handle WebSocket upgrades
     server.on('upgrade', (req, socket, head) => {
         try {
             proxy.upgrade(req, socket, head);
         } catch (err) {
-            console.error('Error handling upgrade:', err);
+            console.error('Upgrade error:', err.message);
             socket.destroy();
         }
     });
 
-    // Handle server errors
     server.on('error', (err) => {
         console.error('Server error:', err);
     });
 
-    // Start server and listen
+    server.on('clientError', (err, socket) => {
+        console.error('Client error:', err.message);
+        if (socket.writable) {
+            socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+        }
+    });
+
+    console.log('[5/5] ✓ HTTP server created');
+
+    // Start listening
     server.listen(port, '0.0.0.0', () => {
-        console.log(`✓ Rammerhead proxy server listening on port ${port}`);
+        console.log('');
+        console.log('╔════════════════════════════════════════╗');
+        console.log('║  ✓ Rammerhead Server Ready!           ║');
+        console.log('║  Listening on 0.0.0.0:' + port + '           ║');
+        console.log('╚════════════════════════════════════════╝');
+        console.log('');
     });
 
     // Graceful shutdown
-    process.on('SIGTERM', () => {
-        console.log('SIGTERM received, shutting down gracefully...');
+    const shutdown = (signal) => {
+        console.log(`\n${signal} received. Shutting down gracefully...`);
         server.close(() => {
             console.log('Server closed');
             process.exit(0);
         });
+        
+        // Force exit after 10 seconds
+        setTimeout(() => {
+            console.error('Forced shutdown after timeout');
+            process.exit(1);
+        }, 10000);
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+
+    // Handle any uncaught errors
+    process.on('uncaughtException', (err) => {
+        console.error('\n!!! UNCAUGHT EXCEPTION !!!');
+        console.error(err);
+        process.exit(1);
     });
 
-    process.on('SIGINT', () => {
-        console.log('SIGINT received, shutting down gracefully...');
-        server.close(() => {
-            console.log('Server closed');
-            process.exit(0);
-        });
+    process.on('unhandledRejection', (reason, promise) => {
+        console.error('\n!!! UNHANDLED REJECTION !!!');
+        console.error('Promise:', promise);
+        console.error('Reason:', reason);
+        process.exit(1);
     });
 
 } catch (err) {
-    console.error('Fatal error during startup:', err);
+    console.error('\n!!! FATAL ERROR DURING STARTUP !!!');
+    console.error('Message:', err.message);
+    console.error('Stack:', err.stack);
     process.exit(1);
 }
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-    console.error('Uncaught exception:', err);
-    process.exit(1);
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled rejection at:', promise, 'reason:', reason);
-    process.exit(1);
-});
