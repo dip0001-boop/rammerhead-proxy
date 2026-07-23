@@ -1,7 +1,7 @@
 'use strict';
 
 /* -----------------------------
-   PASSWORD SYSTEM
+PASSWORD SYSTEM
 ----------------------------- */
 
 const password = 'banana13!';
@@ -11,564 +11,1005 @@ const LOCKOUT_TIME = 60 * 60 * 1000;
 
 const $ = (id) => document.getElementById(id);
 
-const errorText = $('error-text');
+const loginErrorText = $('login-error-text');
+const vaultErrorText = $('error-text');
+
+function showLoginError(message) {
+if (!loginErrorText) return;
+
+```
+loginErrorText.textContent = message;
+loginErrorText.style.display = 'block';
+```
+
+}
+
+function clearLoginError() {
+if (!loginErrorText) return;
+
+```
+loginErrorText.textContent = '';
+loginErrorText.style.display = 'none';
+```
+
+}
 
 function showError(message) {
-    if (!errorText) return;
+if (!vaultErrorText) return;
 
-    errorText.textContent = message;
-    errorText.style.display = 'block';
+```
+vaultErrorText.textContent = message;
+vaultErrorText.style.display = 'block';
+```
+
 }
 
 function clearError() {
-    if (!errorText) return;
+if (!vaultErrorText) return;
 
-    errorText.textContent = '';
-    errorText.style.display = 'none';
+```
+vaultErrorText.textContent = '';
+vaultErrorText.style.display = 'none';
+```
+
 }
 
 /* -----------------------------
-   LOGIN SYSTEM
+LOGIN SYSTEM
 ----------------------------- */
 
 function getLoginAttempts() {
-    return Number(localStorage.getItem('vault-login-attempts') || 0);
+return Number(
+localStorage.getItem('vault-login-attempts') || 0
+);
 }
 
 function setLoginAttempts(attempts) {
-    localStorage.setItem('vault-login-attempts', String(attempts));
+localStorage.setItem(
+'vault-login-attempts',
+String(attempts)
+);
 }
 
 function getLockoutTime() {
-    return Number(localStorage.getItem('vault-lockout-time') || 0);
+return Number(
+localStorage.getItem('vault-lockout-time') || 0
+);
 }
 
 function isLockedOut() {
-    const lockoutTime = getLockoutTime();
+const lockoutTime = getLockoutTime();
 
-    if (!lockoutTime) return false;
-
-    if (Date.now() < lockoutTime) {
-        return true;
-    }
-
-    localStorage.removeItem('vault-lockout-time');
-    setLoginAttempts(0);
-
+```
+if (!lockoutTime) {
     return false;
 }
 
+if (Date.now() < lockoutTime) {
+    return true;
+}
+
+localStorage.removeItem('vault-lockout-time');
+
+setLoginAttempts(0);
+
+return false;
+```
+
+}
+
 function getRemainingLockoutTime() {
-    const remaining = getLockoutTime() - Date.now();
+const remaining =
+getLockoutTime() - Date.now();
 
-    if (remaining <= 0) return 0;
+```
+if (remaining <= 0) {
+    return 0;
+}
 
-    return Math.ceil(remaining / 60000);
+return Math.ceil(
+    remaining / 60000
+);
+```
+
 }
 
 function isLoggedIn() {
-    return sessionStorage.getItem('vault-authenticated') === 'true';
+return sessionStorage.getItem(
+'vault-authenticated'
+) === 'true';
 }
 
 function login() {
-    const input = $('password-input');
+const input = $('password-input');
 
-    if (!input) {
-        console.error('Password input not found.');
-        return;
-    }
+```
+if (!input) {
+    console.error(
+        'Password input not found.'
+    );
 
-    clearError();
+    return;
+}
 
-    if (isLockedOut()) {
-        showError(
-            `Too many incorrect attempts. Try again in ${getRemainingLockoutTime()} minutes.`
-        );
-        return;
-    }
+clearLoginError();
 
-    const enteredPassword = input.value;
+if (isLockedOut()) {
+    showLoginError(
+        `Too many incorrect attempts. Try again in ${getRemainingLockoutTime()} minutes.`
+    );
 
-    if (enteredPassword === password) {
-        sessionStorage.setItem('vault-authenticated', 'true');
+    return;
+}
 
-        setLoginAttempts(0);
-        localStorage.removeItem('vault-lockout-time');
+const enteredPassword =
+    input.value;
 
-        showDashboard();
+if (enteredPassword === password) {
+    sessionStorage.setItem(
+        'vault-authenticated',
+        'true'
+    );
 
-        input.value = '';
+    setLoginAttempts(0);
 
-        return;
-    }
-
-    const attempts = getLoginAttempts() + 1;
-
-    setLoginAttempts(attempts);
-
-    if (attempts >= MAX_ATTEMPTS) {
-        localStorage.setItem(
-            'vault-lockout-time',
-            String(Date.now() + LOCKOUT_TIME)
-        );
-
-        showError(
-            'Too many incorrect attempts. Access locked for 1 hour.'
-        );
-
-        input.value = '';
-
-        return;
-    }
-
-    const attemptsRemaining = MAX_ATTEMPTS - attempts;
-
-    showError(
-        `Incorrect password. ${attemptsRemaining} attempt(s) remaining.`
+    localStorage.removeItem(
+        'vault-lockout-time'
     );
 
     input.value = '';
+
+    showDashboard();
+
+    return;
+}
+
+const attempts =
+    getLoginAttempts() + 1;
+
+setLoginAttempts(attempts);
+
+if (attempts >= MAX_ATTEMPTS) {
+    localStorage.setItem(
+        'vault-lockout-time',
+        String(
+            Date.now() + LOCKOUT_TIME
+        )
+    );
+
+    showLoginError(
+        'Too many incorrect attempts. Access locked for 1 hour.'
+    );
+
+    input.value = '';
+
+    return;
+}
+
+const attemptsRemaining =
+    MAX_ATTEMPTS - attempts;
+
+showLoginError(
+    `Incorrect password. ${attemptsRemaining} attempt(s) remaining.`
+);
+
+input.value = '';
+```
+
 }
 
 function showLogin() {
-    const loginScreen = $('login-screen');
-    const app = $('app');
+const loginScreen =
+$('login-screen');
 
-    if (loginScreen) {
-        loginScreen.style.display = 'flex';
-    }
+```
+const app =
+    $('app');
 
-    if (app) {
-        app.style.display = 'none';
-    }
+if (loginScreen) {
+    loginScreen.style.display =
+        'flex';
+}
+
+if (app) {
+    app.style.display =
+        'none';
+}
+```
+
 }
 
 function showDashboard() {
-    const loginScreen = $('login-screen');
-    const app = $('app');
+const loginScreen =
+$('login-screen');
 
-    if (loginScreen) {
-        loginScreen.style.display = 'none';
-    }
+```
+const app =
+    $('app');
 
-    if (app) {
-        app.style.display = 'block';
-    }
+if (loginScreen) {
+    loginScreen.style.display =
+        'none';
+}
+
+if (app) {
+    app.style.display =
+        'block';
+}
+```
+
 }
 
 function checkAuthentication() {
-    if (isLockedOut()) {
-        showLogin();
+if (isLockedOut()) {
+showLogin();
 
-        showError(
-            `Too many incorrect attempts. Try again in ${getRemainingLockoutTime()} minutes.`
-        );
+```
+    showLoginError(
+        `Too many incorrect attempts. Try again in ${getRemainingLockoutTime()} minutes.`
+    );
 
-        return;
-    }
-
-    if (isLoggedIn()) {
-        showDashboard();
-    } else {
-        showLogin();
-    }
+    return;
 }
 
-$('login-btn')?.addEventListener('click', login);
+if (isLoggedIn()) {
+    showDashboard();
+} else {
+    showLogin();
+}
+```
 
-$('password-input')?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-        login();
-    }
-});
+}
+
+$('login-btn')?.addEventListener(
+'click',
+login
+);
+
+$('password-input')?.addEventListener(
+'keydown',
+(event) => {
+if (event.key === 'Enter') {
+login();
+}
+}
+);
 
 /* -----------------------------
-   URL HELPERS
+URL HELPERS
 ----------------------------- */
 
 function normalizeUrl(value) {
-    value = String(value || '').trim();
+value =
+String(value || '').trim();
 
-    if (!value) return '';
+```
+if (!value) {
+    return '';
+}
 
-    if (!/^https?:\/\//i.test(value)) {
-        value = 'https://' + value;
-    }
+if (!/^https?:\/\//i.test(value)) {
+    value =
+        'https://' + value;
+}
 
-    try {
-        return new URL(value).toString();
-    } catch {
-        return '';
-    }
+try {
+    return new URL(value).toString();
+} catch {
+    return '';
+}
+```
+
 }
 
 function getSessionId() {
-    return $('session-id')?.value?.trim() || '';
+return $(
+'session-id'
+)?.value?.trim() || '';
 }
 
 function getPassword() {
-    return password;
+return password;
 }
 
 function getSessionUrl() {
-    return normalizeUrl($('session-url')?.value);
+return normalizeUrl(
+$('session-url')?.value
+);
 }
 
 function buildProxyUrl(url) {
-    const sessionId = getSessionId();
+const sessionId =
+getSessionId();
 
-    if (!sessionId) {
-        showError('Create a session first.');
-        return null;
-    }
+```
+if (!sessionId) {
+    showError(
+        'Create a session first.'
+    );
 
-    return `/session/${encodeURIComponent(sessionId)}/${encodeURIComponent(url)}`;
+    return null;
+}
+
+return `/session/${encodeURIComponent(
+    sessionId
+)}/${encodeURIComponent(
+    url
+)}`;
+```
+
 }
 
 /* -----------------------------
-   REAL RAMMERHEAD SESSION API
+REAL RAMMERHEAD SESSION API
 ----------------------------- */
 
 async function createSession() {
-    clearError();
+clearError();
 
-    try {
-        const response = await fetch(
-            `/newsession?pwd=${encodeURIComponent(getPassword())}`
+```
+try {
+    const response =
+        await fetch(
+            `/newsession?pwd=${encodeURIComponent(
+                getPassword()
+            )}`
         );
 
-        if (!response.ok) {
-            throw new Error('Session creation failed.');
-        }
-
-        const id = (await response.text()).trim();
-
-        if (!id) {
-            throw new Error('No session ID returned.');
-        }
-
-        $('session-id').value = id;
-
-        await editSession(id);
-
-        loadSessions();
-    } catch (error) {
-        console.error(error);
-        showError('Unable to create session. Check the password.');
+    if (!response.ok) {
+        throw new Error(
+            'Session creation failed.'
+        );
     }
+
+    const id =
+        (await response.text()).trim();
+
+    if (!id) {
+        throw new Error(
+            'No session ID returned.'
+        );
+    }
+
+    $('session-id').value =
+        id;
+
+    await editSession(id);
+
+    loadSessions();
+
+} catch (error) {
+    console.error(error);
+
+    showError(
+        'Unable to create session. Check the password.'
+    );
+}
+```
+
 }
 
 async function editSession(id) {
-    const shuffling = $('session-shuffling')?.checked ? '1' : '0';
-    const httpProxy = $('session-httpproxy')?.value?.trim() || '';
+const shuffling =
+$('session-shuffling')?.checked
+? '1'
+: '0';
 
-    const params = new URLSearchParams({
+```
+const httpProxy =
+    $('session-httpproxy')
+        ?.value
+        ?.trim() || '';
+
+const params =
+    new URLSearchParams({
         id,
         pwd: getPassword(),
         enableShuffling: shuffling
     });
 
-    if (httpProxy) {
-        params.set('httpProxy', httpProxy);
-    }
+if (httpProxy) {
+    params.set(
+        'httpProxy',
+        httpProxy
+    );
+}
 
-    const response = await fetch(`/editsession?${params.toString()}`);
+const response =
+    await fetch(
+        `/editsession?${params.toString()}`
+    );
 
-    if (!response.ok) {
-        throw new Error('Could not configure session.');
-    }
+if (!response.ok) {
+    throw new Error(
+        'Could not configure session.'
+    );
+}
+```
+
 }
 
 function openDestination(rawUrl) {
-    clearError();
+clearError();
 
-    const url = normalizeUrl(rawUrl);
+```
+const url =
+    normalizeUrl(rawUrl);
 
-    if (!url) {
-        showError('Enter a valid destination URL.');
-        return;
-    }
+if (!url) {
+    showError(
+        'Enter a valid destination URL.'
+    );
 
-    if (!getSessionId()) {
-        showError('Create a session before opening a destination.');
-        return;
-    }
+    return;
+}
 
-    const proxyUrl = buildProxyUrl(url);
+if (!getSessionId()) {
+    showError(
+        'Create a session before opening a destination.'
+    );
 
-    if (proxyUrl) {
-        window.location.href = proxyUrl;
-    }
+    return;
+}
+
+const proxyUrl =
+    buildProxyUrl(url);
+
+if (proxyUrl) {
+    window.location.href =
+        proxyUrl;
+}
+```
+
 }
 
 /* -----------------------------
-   SESSION TABLE
+SESSION TABLE
 ----------------------------- */
 
 function loadSessions() {
-    const tableBody = $('session-table-body');
+const tableBody =
+$('session-table-body');
 
-    if (!tableBody) return;
+```
+if (!tableBody) {
+    return;
+}
 
-    const id = getSessionId();
+const id =
+    getSessionId();
 
-    if (!id) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="3">Create a session to begin.</td>
-            </tr>
-        `;
-        return;
-    }
-
+if (!id) {
     tableBody.innerHTML = `
         <tr>
-            <td>${escapeHtml(id)}</td>
-            <td>ACTIVE</td>
-            <td>
-                <div class="session-action">
-                    <button type="button" data-open-session="${escapeHtml(id)}">
-                        OPEN
-                    </button>
-
-                    <button type="button" data-delete-session="${escapeHtml(id)}">
-                        DELETE
-                    </button>
-                </div>
+            <td colspan="3">
+                Create a session to begin.
             </td>
         </tr>
     `;
+
+    return;
+}
+
+tableBody.innerHTML = `
+    <tr>
+        <td>
+            ${escapeHtml(id)}
+        </td>
+
+        <td>
+            ACTIVE
+        </td>
+
+        <td>
+            <div class="session-action">
+
+                <button
+                    type="button"
+                    data-open-session="${escapeHtml(id)}"
+                >
+                    OPEN
+                </button>
+
+                <button
+                    type="button"
+                    data-delete-session="${escapeHtml(id)}"
+                >
+                    DELETE
+                </button>
+
+            </div>
+        </td>
+    </tr>
+`;
+```
+
 }
 
 async function deleteSession(id) {
-    try {
-        await fetch(
-            `/deletesession?id=${encodeURIComponent(id)}&pwd=${encodeURIComponent(getPassword())}`
-        );
+try {
+await fetch(
+`/deletesession?id=${encodeURIComponent(
+                id
+            )}&pwd=${encodeURIComponent(
+                getPassword()
+            )}`
+);
 
-        if ($('session-id')?.value === id) {
-            $('session-id').value = '';
-        }
-
-        loadSessions();
-    } catch (error) {
-        console.error('Could not delete session:', error);
+```
+    if (
+        $('session-id')
+            ?.value === id
+    ) {
+        $('session-id').value =
+            '';
     }
+
+    loadSessions();
+
+} catch (error) {
+    console.error(
+        'Could not delete session:',
+        error
+    );
+}
+```
+
 }
 
 function escapeHtml(value) {
-    return String(value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
+return String(value)
+.replaceAll(
+'&',
+'&'
+)
+.replaceAll(
+'<',
+'<'
+)
+.replaceAll(
+'>',
+'>'
+)
+.replaceAll(
+'"',
+'"'
+)
+.replaceAll(
+"'",
+'''
+);
 }
 
 /* -----------------------------
-   UI SECTIONS
+UI SECTIONS
 ----------------------------- */
 
-const dashboard = document.querySelector('.vault-dashboard');
-const browserSection = $('browser-section');
-const gamesSection = $('games-section');
-const gatewaySection = $('gateway-section');
+const dashboard =
+document.querySelector(
+'.vault-dashboard'
+);
+
+const browserSection =
+$('browser-section');
+
+const gamesSection =
+$('games-section');
+
+const gatewaySection =
+$('gateway-section');
 
 function hideSections() {
-    if (dashboard) dashboard.style.display = 'none';
-    if (browserSection) browserSection.style.display = 'none';
-    if (gamesSection) gamesSection.style.display = 'none';
-    if (gatewaySection) gatewaySection.style.display = 'none';
+if (dashboard) {
+dashboard.style.display =
+'none';
+}
+
+```
+if (browserSection) {
+    browserSection.style.display =
+        'none';
+}
+
+if (gamesSection) {
+    gamesSection.style.display =
+        'none';
+}
+
+if (gatewaySection) {
+    gatewaySection.style.display =
+        'none';
+}
+```
+
 }
 
 function setActiveNav(id) {
-    document.querySelectorAll('.bottom-nav-item').forEach((button) => {
-        button.classList.remove('active');
-    });
+document
+.querySelectorAll(
+'.bottom-nav-item'
+)
+.forEach((button) => {
+button.classList.remove(
+'active'
+);
+});
 
-    $(id)?.classList.add('active');
+```
+$(id)?.classList.add(
+    'active'
+);
+```
+
 }
 
 function showHome() {
-    hideSections();
+hideSections();
 
-    if (dashboard) dashboard.style.display = 'block';
+```
+if (dashboard) {
+    dashboard.style.display =
+        'block';
+}
 
-    setActiveNav('nav-home');
+setActiveNav(
+    'nav-home'
+);
+```
+
 }
 
 function showBrowser() {
-    hideSections();
+hideSections();
 
-    if (browserSection) browserSection.style.display = 'block';
+```
+if (browserSection) {
+    browserSection.style.display =
+        'block';
+}
 
-    setActiveNav('nav-browser');
+setActiveNav(
+    'nav-browser'
+);
+```
+
 }
 
 function showGames() {
-    hideSections();
+hideSections();
 
-    if (gamesSection) gamesSection.style.display = 'block';
+```
+if (gamesSection) {
+    gamesSection.style.display =
+        'block';
+}
 
-    setActiveNav('nav-games');
+setActiveNav(
+    'nav-games'
+);
+```
+
 }
 
 function showGateway() {
-    hideSections();
+hideSections();
 
-    if (gatewaySection) gatewaySection.style.display = 'block';
+```
+if (gatewaySection) {
+    gatewaySection.style.display =
+        'block';
+}
 
-    setActiveNav('nav-gateway');
+setActiveNav(
+    'nav-gateway'
+);
+```
+
 }
 
 /* -----------------------------
-   GAMES
+GAMES
 ----------------------------- */
 
 const games = [
-    {
-        name: 'Shell Shockers',
-        url: 'https://shellshock.io/',
-        description: 'Multiplayer egg shooter'
-    },
-    {
-        name: 'Krunker',
-        url: 'https://krunker.io/',
-        description: 'Fast browser FPS'
-    },
-    {
-        name: 'Agar.io',
-        url: 'https://agar.io/',
-        description: 'Grow and compete'
-    },
-    {
-        name: 'Slither.io',
-        url: 'https://slither.io/',
-        description: 'Classic multiplayer snake'
-    },
-    {
-        name: '2048',
-        url: 'https://play2048.co/',
-        description: 'Puzzle game'
-    },
-    {
-        name: 'Tetris',
-        url: 'https://tetris.com/play-tetris',
-        description: 'Classic block puzzle'
-    }
+{
+name: 'Shell Shockers',
+url: 'https://shellshock.io/',
+description: 'Multiplayer egg shooter'
+},
+
+```
+{
+    name: 'Krunker',
+    url: 'https://krunker.io/',
+    description: 'Fast browser FPS'
+},
+
+{
+    name: 'Agar.io',
+    url: 'https://agar.io/',
+    description: 'Grow and compete'
+},
+
+{
+    name: 'Slither.io',
+    url: 'https://slither.io/',
+    description: 'Classic multiplayer snake'
+},
+
+{
+    name: '2048',
+    url: 'https://play2048.co/',
+    description: 'Puzzle game'
+},
+
+{
+    name: 'Tetris',
+    url: 'https://tetris.com/play-tetris',
+    description: 'Classic block puzzle'
+}
+```
+
 ];
 
 function renderGames() {
-    const grid = $('games-grid');
+const grid =
+$('games-grid');
 
-    if (!grid) return;
+```
+if (!grid) {
+    return;
+}
 
-    grid.innerHTML = '';
+grid.innerHTML =
+    '';
 
-    games.forEach((game) => {
-        const card = document.createElement('button');
+games.forEach(
+    (game) => {
+        const card =
+            document.createElement(
+                'button'
+            );
 
-        card.type = 'button';
-        card.className = 'game-card';
+        card.type =
+            'button';
+
+        card.className =
+            'game-card';
 
         card.innerHTML = `
-            <strong>${escapeHtml(game.name)}</strong>
-            <small>${escapeHtml(game.description)}</small>
+            <strong>
+                ${escapeHtml(game.name)}
+            </strong>
+
+            <small>
+                ${escapeHtml(game.description)}
+            </small>
         `;
 
-        card.addEventListener('click', () => {
-            openDestination(game.url);
-        });
+        card.addEventListener(
+            'click',
+            () => {
+                openDestination(
+                    game.url
+                );
+            }
+        );
 
-        grid.appendChild(card);
-    });
+        grid.appendChild(
+            card
+        );
+    }
+);
+```
+
 }
 
 /* -----------------------------
-   EVENTS
+EVENTS
 ----------------------------- */
 
-$('session-create-btn')?.addEventListener('click', createSession);
+$('session-create-btn')
+?.addEventListener(
+'click',
+createSession
+);
 
-$('session-go')?.addEventListener('click', () => {
-    openDestination(getSessionUrl());
-});
+$('session-go')
+?.addEventListener(
+'click',
+() => {
+openDestination(
+getSessionUrl()
+);
+}
+);
 
-$('dashboard-go')?.addEventListener('click', () => {
-    openDestination($('dashboard-url')?.value);
-});
+$('dashboard-go')
+?.addEventListener(
+'click',
+() => {
+openDestination(
+$('dashboard-url')
+?.value
+);
+}
+);
 
-$('browser-go')?.addEventListener('click', () => {
-    openDestination($('browser-url')?.value);
-});
+$('browser-go')
+?.addEventListener(
+'click',
+() => {
+openDestination(
+$('browser-url')
+?.value
+);
+}
+);
 
-$('dashboard-url')?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-        openDestination(event.target.value);
+$('dashboard-url')
+?.addEventListener(
+'keydown',
+(event) => {
+if (
+event.key ===
+'Enter'
+) {
+openDestination(
+event.target.value
+);
+}
+}
+);
+
+$('browser-url')
+?.addEventListener(
+'keydown',
+(event) => {
+if (
+event.key ===
+'Enter'
+) {
+openDestination(
+event.target.value
+);
+}
+}
+);
+
+$('open-browser-card')
+?.addEventListener(
+'click',
+showBrowser
+);
+
+$('open-games-card')
+?.addEventListener(
+'click',
+showGames
+);
+
+$('games-back')
+?.addEventListener(
+'click',
+showHome
+);
+
+$('nav-home')
+?.addEventListener(
+'click',
+showHome
+);
+
+$('nav-browser')
+?.addEventListener(
+'click',
+showBrowser
+);
+
+$('nav-games')
+?.addEventListener(
+'click',
+showGames
+);
+
+$('nav-gateway')
+?.addEventListener(
+'click',
+showGateway
+);
+
+document
+.querySelectorAll(
+'.quick-link'
+)
+.forEach(
+(button) => {
+button.addEventListener(
+'click',
+() => {
+openDestination(
+button.dataset.url
+);
+}
+);
+}
+);
+
+$('session-table-body')
+?.addEventListener(
+'click',
+(event) => {
+const openButton =
+event.target.closest(
+'[data-open-session]'
+);
+
+```
+        const deleteButton =
+            event.target.closest(
+                '[data-delete-session]'
+            );
+
+        if (openButton) {
+            $('session-id').value =
+                openButton.dataset.openSession;
+
+            showBrowser();
+        }
+
+        if (deleteButton) {
+            deleteSession(
+                deleteButton.dataset.deleteSession
+            );
+        }
     }
-});
+);
+```
 
-$('browser-url')?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-        openDestination(event.target.value);
+$('session-advanced-toggle')
+?.addEventListener(
+'click',
+() => {
+const container =
+$('session-advanced-container');
+
+```
+        const button =
+            $('session-advanced-toggle');
+
+        if (
+            !container ||
+            !button
+        ) {
+            return;
+        }
+
+        const isHidden =
+            container.style.display ===
+            'none';
+
+        container.style.display =
+            isHidden
+                ? 'block'
+                : 'none';
+
+        button.textContent =
+            isHidden
+                ? '- HIDE ADVANCED OPTIONS'
+                : '+ SHOW ADVANCED OPTIONS';
     }
-});
-
-$('open-browser-card')?.addEventListener('click', showBrowser);
-
-$('open-games-card')?.addEventListener('click', showGames);
-
-$('games-back')?.addEventListener('click', showHome);
-
-$('nav-home')?.addEventListener('click', showHome);
-
-$('nav-browser')?.addEventListener('click', showBrowser);
-
-$('nav-games')?.addEventListener('click', showGames);
-
-$('nav-gateway')?.addEventListener('click', showGateway);
-
-document.querySelectorAll('.quick-link').forEach((button) => {
-    button.addEventListener('click', () => {
-        openDestination(button.dataset.url);
-    });
-});
-
-$('session-table-body')?.addEventListener('click', (event) => {
-    const openButton = event.target.closest('[data-open-session]');
-    const deleteButton = event.target.closest('[data-delete-session]');
-
-    if (openButton) {
-        $('session-id').value = openButton.dataset.openSession;
-        showBrowser();
-    }
-
-    if (deleteButton) {
-        deleteSession(deleteButton.dataset.deleteSession);
-    }
-});
-
-$('session-advanced-toggle')?.addEventListener('click', () => {
-    const container = $('session-advanced-container');
-    const button = $('session-advanced-toggle');
-
-    if (!container || !button) return;
-
-    const isHidden = container.style.display === 'none';
-
-    container.style.display = isHidden ? 'block' : 'none';
-
-    button.textContent = isHidden
-        ? '- HIDE ADVANCED OPTIONS'
-        : '+ SHOW ADVANCED OPTIONS';
-});
+);
+```
 
 /* -----------------------------
-   START
+START
 ----------------------------- */
 
 checkAuthentication();
 
 renderGames();
+
 loadSessions();
+
 showHome();
