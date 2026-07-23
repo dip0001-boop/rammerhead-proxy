@@ -14,33 +14,16 @@ console.log(`Port: ${PORT}`);
 try {
     const sessionStore = new RammerheadSessionMemoryStore();
 
-    const proxy = new RammerheadProxy({
+    new RammerheadProxy({
         sessionStore,
-
-        // Required for Render
         bindingAddress: '0.0.0.0',
         port: PORT,
-
-        // Use one public port
         crossDomainPort: null
     });
 
-    // Serve everything inside public/
-    addStaticFilesToProxy(
-        proxy,
-        path.join(__dirname, '../public')
-    );
+    console.log('Rammerhead proxy started successfully.');
 
-    console.log('Static frontend files registered.');
-    console.log(`Rammerhead listening on port ${PORT}`);
-
-    process.on('SIGTERM', () => {
-        process.exit(0);
-    });
-
-    process.on('SIGINT', () => {
-        process.exit(0);
-    });
+    const proxy = require('./classes/RammerheadProxy');
 
 } catch (error) {
     console.error('Fatal error during startup:');
