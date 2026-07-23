@@ -17,7 +17,10 @@ const sessionStore = new RammerheadSessionMemoryStore();
 const proxy = new RammerheadProxy({
     bindingAddress: HOST,
     port: PORT,
-    crossDomainPort: null
+
+    // Use normal Hammerhead two-port mode.
+    // This should create a real listening HTTP server.
+    crossDomainPort: PORT + 1
 });
 
 proxy.openSessions = sessionStore;
@@ -39,22 +42,16 @@ proxy.GET('/healthz', (req, res) => {
 console.log('Static frontend files registered.');
 console.log(`Rammerhead running on ${HOST}:${PORT}`);
 
-// Keep the Node process alive.
-// The Rammerhead proxy itself manages the HTTP server.
-const keepAlive = setInterval(() => {
-    // Intentionally empty.
-}, 1000);
-
 let shuttingDown = false;
 
 function shutdown(signal) {
-    if (shuttingDown) return;
+    if (shuttingDown) {
+        return;
+    }
 
     shuttingDown = true;
 
     console.log(`${signal} received.`);
-
-    clearInterval(keepAlive);
 
     try {
         proxy.close();
@@ -62,22 +59,20 @@ function shutdown(signal) {
     } catch (error) {
         console.error('Error while closing Rammerhead:', error);
     }
-
-    process.exit(0);
 }
 
-process.once('SIGTERM', () => shutdown('SIGTERM'));
-process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => {
+    shutdown('SIGTERM');
+});
+
+process.once('SIGINT', () => {
+    shutdown('SIGINT');
+});
 
 process.on('uncaughtException', (error) => {
     console.error('UNCAUGHT EXCEPTION:', error);
-    console.error(error.stack);
 });
 
 process.on('unhandledRejection', (reason) => {
     console.error('UNHANDLED REJECTION:', reason);
-});
-
-process.on('exit', (code) => {
-    console.log(`Process exiting with code: ${code}`);
 });
