@@ -17,9 +17,6 @@ const sessionStore = new RammerheadSessionMemoryStore();
 const proxy = new RammerheadProxy({
     bindingAddress: HOST,
     port: PORT,
-
-    // Use normal Hammerhead two-port mode.
-    // This should create a real listening HTTP server.
     crossDomainPort: PORT + 1
 });
 
@@ -40,6 +37,20 @@ proxy.GET('/healthz', (req, res) => {
 });
 
 console.log('Static frontend files registered.');
+
+/*
+ * Explicitly start the Hammerhead proxy.
+ * The first port is the public Render port.
+ */
+proxy.start({
+    hostname: HOST,
+    port1: PORT,
+    port2: PORT + 1,
+    ssl: null,
+    developmentMode: true,
+    cache: true
+});
+
 console.log(`Rammerhead running on ${HOST}:${PORT}`);
 
 let shuttingDown = false;
@@ -71,6 +82,7 @@ process.once('SIGINT', () => {
 
 process.on('uncaughtException', (error) => {
     console.error('UNCAUGHT EXCEPTION:', error);
+    console.error(error.stack);
 });
 
 process.on('unhandledRejection', (reason) => {
