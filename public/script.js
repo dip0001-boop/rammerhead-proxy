@@ -1,27 +1,44 @@
 (function () {
+    'use strict';
+
     const mod = (n, m) => ((n % m) + m) % m;
-    const baseDictionary = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~-';
+
+    const baseDictionary =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~-';
+
     const shuffledIndicator = '_rhs';
-    const generateDictionary = function () {
+
+    function generateDictionary() {
         let str = '';
+
         const split = baseDictionary.split('');
+
         while (split.length > 0) {
-            str += split.splice(Math.floor(Math.random() * split.length), 1)[0];
+            str += split.splice(
+                Math.floor(Math.random() * split.length),
+                1
+            )[0];
         }
+
         return str;
-    };
+    }
+
     class StrShuffler {
         constructor(dictionary = generateDictionary()) {
             this.dictionary = dictionary;
         }
+
         shuffle(str) {
             if (str.startsWith(shuffledIndicator)) {
                 return str;
             }
+
             let shuffledStr = '';
+
             for (let i = 0; i < str.length; i++) {
                 const char = str.charAt(i);
                 const idx = baseDictionary.indexOf(char);
+
                 if (char === '%' && str.length - i >= 3) {
                     shuffledStr += char;
                     shuffledStr += str.charAt(++i);
@@ -29,309 +46,585 @@
                 } else if (idx === -1) {
                     shuffledStr += char;
                 } else {
-                    shuffledStr += this.dictionary.charAt(mod(idx + i, baseDictionary.length));
+                    shuffledStr += this.dictionary.charAt(
+                        mod(idx + i, baseDictionary.length)
+                    );
                 }
             }
+
             return shuffledIndicator + shuffledStr;
-        }
-        unshuffle(str) {
-            if (!str.startsWith(shuffledIndicator)) {
-                return str;
-            }
-
-            str = str.slice(shuffledIndicator.length);
-
-            let unshuffledStr = '';
-            for (let i = 0; i < str.length; i++) {
-                const char = str.charAt(i);
-                const idx = this.dictionary.indexOf(char);
-                if (char === '%' && str.length - i >= 3) {
-                    unshuffledStr += char;
-                    unshuffledStr += str.charAt(++i);
-                    unshuffledStr += str.charAt(++i);
-                } else if (idx === -1) {
-                    unshuffledStr += char;
-                } else {
-                    unshuffledStr += baseDictionary.charAt(mod(idx - i, baseDictionary.length));
-                }
-            }
-            return unshuffledStr;
         }
     }
 
-    function setError(err) {
-        var element = document.getElementById('error-text');
-        if (err) {
+    function setError(message) {
+        const element = document.getElementById('error-text');
+
+        if (message) {
             element.style.display = 'block';
-            element.textContent = 'An error occurred: ' + err;
+            element.textContent = 'Error: ' + message;
         } else {
             element.style.display = 'none';
             element.textContent = '';
         }
     }
+
     function getPassword() {
-        var element = document.getElementById('session-password');
+        const element =
+            document.getElementById('session-password');
+
         return element ? element.value : '';
     }
-    function get(url, callback, shush = false) {
-        var pwd = getPassword();
-        if (pwd) {
-            // really cheap way of adding a query parameter
-            if (url.includes('?')) {
-                url += '&pwd=' + pwd;
-            } else {
-                url += '?pwd=' + pwd;
-            }
+
+    function get(url, callback) {
+        const password = getPassword();
+
+        if (password) {
+            url += url.includes('?')
+                ? '&pwd=' + encodeURIComponent(password)
+                : '?pwd=' + encodeURIComponent(password);
         }
 
-        var request = new XMLHttpRequest();
-        request.open('GET', url, true);
-        request.send();
+        const request = new XMLHttpRequest();
 
-        request.onerror = function () {
-            if (!shush) setError('Cannot communicate with the server');
-        };
+        request.open('GET', url, true);
+
         request.onload = function () {
             if (request.status === 200) {
-                if (callback)
-                {
+                if (callback) {
                     callback(request.responseText);
                 }
             } else {
-                if (!shush)
-                    setError(
-                        'unexpected server response to not match "200". Server says "' + request.responseText + '"'
-                    );
+                setError(
+                    'Server returned HTTP ' +
+                    request.status
+                );
             }
         };
+
+        request.onerror = function () {
+            setError('Cannot communicate with the server');
+        };
+
+        request.send();
     }
 
-    var api = {
+    const api = {
+
         needpassword(callback) {
-            get('/needpassword', value => callback(value === 'true'));
+            get('/needpassword', value => {
+                callback(value === 'true');
+            });
         },
+
         newsession(callback) {
             get('/newsession', callback);
         },
-        editsession(id, httpProxy, enableShuffling, callback) {
-            get(
+
+        editsession(
+            id,
+            httpProxy,
+            enableShuffling,
+            callback
+        ) {
+            let url =
                 '/editsession?id=' +
-                encodeURIComponent(id) +
-                (httpProxy ? '&httpProxy=' + encodeURIComponent(httpProxy) : '') +
-                '&enableShuffling=' + (enableShuffling ? '1' : '0'),
-                function (res) {
-                    if (res !== 'Success') return setError('unexpected response from server. received ' + res);
-                    if (callback)
-                    {
+                encodeURIComponent(id);
+
+            if (httpProxy) {
+                url +=
+                    '&httpProxy=' +
+                    encodeURIComponent(httpProxy);
+            }
+
+            url +=
+                '&enableShuffling=' +
+                (enableShuffling ? '1' : '0');
+
+            get(url, function (response) {
+                if (response !== 'Success') {
+                    setError(
+                        'Unexpected server response: ' +
+                        response
+                    );
+
+                    return;
+                }
+
+                if (callback) {
+                    callback();
+                }
+            });
+        },
+
+        sessionexists(id, callback) {
+            get(
+                '/sessionexists?id=' +
+                encodeURIComponent(id),
+                function (response) {
+                    if (response === 'exists') {
+                        callback(true);
+                    } else if (response === 'not found') {
+                        callback(false);
+                    } else {
+                        setError(
+                            'Unexpected server response'
+                        );
+                    }
+                }
+            );
+        },
+
+        deletesession(id, callback) {
+            get(
+                '/deletesession?id=' +
+                encodeURIComponent(id),
+                function (response) {
+                    if (
+                        response !== 'Success' &&
+                        response !== 'not found'
+                    ) {
+                        setError(
+                            'Unexpected server response'
+                        );
+
+                        return;
+                    }
+
+                    if (callback) {
                         callback();
                     }
                 }
             );
         },
-        sessionexists(id, callback) {
-            get('/sessionexists?id=' + encodeURIComponent(id), function (res) {
-                if (res === 'exists') return callback(true);
-                if (res === 'not found') return callback(false);
-                setError('unexpected response from server. received' + res);
-            });
-        },
-        deletesession(id, callback) {
-            api.sessionexists(id, function (exists) {
-                if (exists) {
-                    get('/deletesession?id=' + id, function (res) {
-                        if (res !== 'Success' && res !== 'not found')
-                            return setError('unexpected response from server. received ' + res);
-                        
-                        if (callback)
-                        {
-                            callback();
-                        }
-                    });
-                } else {
-                    if (callback)
-                    {
-                        callback();
+
+        shuffleDict(id, callback) {
+            get(
+                '/api/shuffleDict?id=' +
+                encodeURIComponent(id),
+                function (response) {
+                    try {
+                        callback(JSON.parse(response));
+                    } catch {
+                        setError(
+                            'Invalid shuffle dictionary'
+                        );
                     }
                 }
-            });
-        },
-        shuffleDict(id, callback) {
-            get('/api/shuffleDict?id=' + encodeURIComponent(id), function (res) {
-                if (callback)
-                {
-                    callback(JSON.parse(res));
-                }
-            });
+            );
         }
     };
 
-    var localStorageKey = 'rammerhead_sessionids';
-    var localStorageKeyDefault = 'rammerhead_default_sessionid';
-    var sessionIdsStore = {
+    const localStorageKey =
+        'rammerhead_sessionids';
+
+    const localStorageKeyDefault =
+        'rammerhead_default_sessionid';
+
+    const sessionIdsStore = {
+
         get() {
-            var rawData = localStorage.getItem(localStorageKey);
-            if (!rawData) return [];
+            const rawData =
+                localStorage.getItem(localStorageKey);
+
+            if (!rawData) {
+                return [];
+            }
+
             try {
-                var data = JSON.parse(rawData);
-                if (!Array.isArray(data)) throw 'getout';
-                return data;
-            } catch (e) {
+                const data = JSON.parse(rawData);
+
+                return Array.isArray(data)
+                    ? data
+                    : [];
+            } catch {
                 return [];
             }
         },
+
         set(data) {
-            if (!data || !Array.isArray(data)) throw new TypeError('must be array');
-            localStorage.setItem(localStorageKey, JSON.stringify(data));
+            localStorage.setItem(
+                localStorageKey,
+                JSON.stringify(data)
+            );
         },
+
         getDefault() {
-            var sessionId = localStorage.getItem(localStorageKeyDefault);
-            if (sessionId) {
-                var data = sessionIdsStore.get();
-                data.filter(function (e) {
-                    return e.id === sessionId;
-                });
-                if (data.length) return data[0];
+            const id =
+                localStorage.getItem(
+                    localStorageKeyDefault
+                );
+
+            if (!id) {
+                return null;
             }
-            return null;
+
+            return this.get().find(
+                session => session.id === id
+            ) || null;
         },
+
         setDefault(id) {
-            localStorage.setItem(localStorageKeyDefault, id);
+            localStorage.setItem(
+                localStorageKeyDefault,
+                id
+            );
         }
     };
 
     function renderSessionTable(data) {
-        var tbody = document.querySelector('tbody');
-        while (tbody.firstChild && !tbody.firstChild.remove());
-        for (var i = 0; i < data.length; i++) {
-            var tr = document.createElement('tr');
-            appendIntoTr(data[i].id);
-            appendIntoTr(data[i].createdOn);
+        const tbody =
+            document.getElementById(
+                'session-table-body'
+            );
 
-            var fillInBtn = document.createElement('button');
-            fillInBtn.textContent = 'Fill in existing session ID';
-            fillInBtn.className = 'btn btn-outline-primary';
-            fillInBtn.onclick = index(i, function (idx) {
-                setError();
-                sessionIdsStore.setDefault(data[idx].id);
-                loadSettings(data[idx]);
-            });
-            appendIntoTr(fillInBtn);
+        tbody.innerHTML = '';
 
-            var deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Delete';
-            deleteBtn.className = 'btn btn-outline-danger';
-            deleteBtn.onclick = index(i, function (idx) {
-                setError();
-                api.deletesession(data[idx].id, function () {
-                    data.splice(idx, 1)[0];
-                    sessionIdsStore.set(data);
-                    renderSessionTable(data);
-                });
-            });
-            appendIntoTr(deleteBtn);
+        if (data.length === 0) {
+            const row =
+                document.createElement('tr');
 
-            tbody.appendChild(tr);
+            const cell =
+                document.createElement('td');
+
+            cell.colSpan = 3;
+
+            cell.textContent =
+                'No active sessions';
+
+            row.appendChild(cell);
+
+            tbody.appendChild(row);
+
+            return;
         }
-        function appendIntoTr(stuff) {
-            var td = document.createElement('td');
-            if (typeof stuff === 'object') {
-                td.appendChild(stuff);
-            } else {
-                td.textContent = stuff;
-            }
-            tr.appendChild(td);
-        }
-        function index(i, func) {
-            return func.bind(null, i);
-        }
+
+        data.forEach((session, index) => {
+
+            const row =
+                document.createElement('tr');
+
+            const idCell =
+                document.createElement('td');
+
+            idCell.textContent =
+                session.id;
+
+            const dateCell =
+                document.createElement('td');
+
+            dateCell.textContent =
+                session.createdOn;
+
+            const actionCell =
+                document.createElement('td');
+
+            const actions =
+                document.createElement('div');
+
+            actions.className =
+                'session-action';
+
+            const useButton =
+                document.createElement('button');
+
+            useButton.textContent =
+                'USE';
+
+            useButton.onclick = function () {
+                sessionIdsStore.setDefault(
+                    session.id
+                );
+
+                loadSettings(session);
+            };
+
+            const deleteButton =
+                document.createElement('button');
+
+            deleteButton.textContent =
+                'DELETE';
+
+            deleteButton.onclick = function () {
+                api.deletesession(
+                    session.id,
+                    function () {
+                        data.splice(index, 1);
+
+                        sessionIdsStore.set(data);
+
+                        renderSessionTable(data);
+                    }
+                );
+            };
+
+            actions.appendChild(useButton);
+
+            actions.appendChild(deleteButton);
+
+            actionCell.appendChild(actions);
+
+            row.appendChild(idCell);
+
+            row.appendChild(dateCell);
+
+            row.appendChild(actionCell);
+
+            tbody.appendChild(row);
+        });
     }
+
     function loadSettings(session) {
-        document.getElementById('session-id').value = session.id;
-        document.getElementById('session-httpproxy').value = session.httpproxy || '';
-        document.getElementById('session-shuffling').checked = typeof session.enableShuffling === 'boolean' ? session.enableShuffling : true;
+        document.getElementById(
+            'session-id'
+        ).value = session.id;
+
+        document.getElementById(
+            'session-httpproxy'
+        ).value = session.httpproxy || '';
+
+        document.getElementById(
+            'session-shuffling'
+        ).checked =
+            typeof session.enableShuffling === 'boolean'
+                ? session.enableShuffling
+                : true;
     }
+
     function loadSessions() {
-        var sessions = sessionIdsStore.get();
-        var defaultSession = sessionIdsStore.getDefault();
-        if (defaultSession) loadSettings(defaultSession);
+        const sessions =
+            sessionIdsStore.get();
+
+        const defaultSession =
+            sessionIdsStore.getDefault();
+
+        if (defaultSession) {
+            loadSettings(defaultSession);
+        }
+
         renderSessionTable(sessions);
     }
+
     function addSession(id) {
-        var data = sessionIdsStore.get();
-        data.unshift({ id: id, createdOn: new Date().toLocaleString() });
+        const data =
+            sessionIdsStore.get();
+
+        data.unshift({
+            id,
+            createdOn:
+                new Date().toLocaleString()
+        });
+
         sessionIdsStore.set(data);
+
         renderSessionTable(data);
     }
-    function editSession(id, httpproxy, enableShuffling) {
-        var data = sessionIdsStore.get();
-        for (var i = 0; i < data.length; i++) {
-            if (data[i].id === id) {
-                data[i].httpproxy = httpproxy;
-                data[i].enableShuffling = enableShuffling;
-                sessionIdsStore.set(data);
-                return;
-            }
+
+    function editSession(
+        id,
+        httpProxy,
+        enableShuffling
+    ) {
+        const data =
+            sessionIdsStore.get();
+
+        const session =
+            data.find(
+                item => item.id === id
+            );
+
+        if (session) {
+            session.httpproxy =
+                httpProxy;
+
+            session.enableShuffling =
+                enableShuffling;
+
+            sessionIdsStore.set(data);
         }
-        throw new TypeError('cannot find ' + id);
     }
 
-    get('/mainport', function (data) {
-        var defaultPort = window.location.protocol === 'https:' ? 443 : 80;
-        var currentPort = window.location.port || defaultPort;
-        var mainPort = data || defaultPort;
-        if (currentPort != mainPort) window.location.port = mainPort;
-    });
+    function go() {
+        setError();
 
-    api.needpassword(doNeed => {
-        if (doNeed) {
-            document.getElementById('password-wrapper').style.display = '';
+        const id =
+            document.getElementById(
+                'session-id'
+            ).value.trim();
+
+        const httpProxy =
+            document.getElementById(
+                'session-httpproxy'
+            ).value.trim();
+
+        const enableShuffling =
+            document.getElementById(
+                'session-shuffling'
+            ).checked;
+
+        let url =
+            document.getElementById(
+                'session-url'
+            ).value.trim();
+
+        if (!url) {
+            url = 'https://www.google.com/';
         }
-    });
-    window.addEventListener('load', function () {
-        loadSessions();
 
-        var showingAdvancedOptions = false;
-        document.getElementById('session-advanced-toggle').onclick = function () {
-            // eslint-disable-next-line no-cond-assign
-            document.getElementById('session-advanced-container').style.display = (showingAdvancedOptions =
-                !showingAdvancedOptions)
-                ? 'block'
-                : 'none';
-        };
+        if (!id) {
+            setError(
+                'Create a session first'
+            );
 
-        document.getElementById('session-create-btn').onclick = function () {
-            setError();
-            api.newsession(function (id) {
-                addSession(id);
-                document.getElementById('session-id').value = id;
-                document.getElementById('session-httpproxy').value = '';
-            });
-        };
-        function go() {
-            setError();
-            var id = document.getElementById('session-id').value;
-            var httpproxy = document.getElementById('session-httpproxy').value;
-            var enableShuffling = document.getElementById('session-shuffling').checked;
-            var url = document.getElementById('session-url').value || 'https://www.google.com/';
-            if (!id) return setError('must generate a session id first');
-            api.sessionexists(id, function (value) {
-                if (!value) return setError('session does not exist. try deleting or generating a new session');
-                api.editsession(id, httpproxy, enableShuffling, function () {
-                    editSession(id, httpproxy, enableShuffling);
-                    api.shuffleDict(id, function (shuffleDict) {
-                        if (!shuffleDict) {
-                            window.location.href = '/' + id + '/' + url;
-                        } else {
-                            var shuffler = new StrShuffler(shuffleDict);
-                            window.location.href = '/' + id + '/' + shuffler.shuffle(url);
-                        }
-                    });
-                });
-            });
+            return;
         }
-        document.getElementById('session-go').onclick = go;
-        document.getElementById('session-url').onkeydown = function (event) {
-            if (event.key === 'Enter') go();
-        };
-    });
+
+        if (
+            !url.startsWith('http://') &&
+            !url.startsWith('https://')
+        ) {
+            url = 'https://' + url;
+        }
+
+        api.sessionexists(
+            id,
+            function (exists) {
+
+                if (!exists) {
+                    setError(
+                        'Session does not exist'
+                    );
+
+                    return;
+                }
+
+                api.editsession(
+                    id,
+                    httpProxy,
+                    enableShuffling,
+                    function () {
+
+                        editSession(
+                            id,
+                            httpProxy,
+                            enableShuffling
+                        );
+
+                        api.shuffleDict(
+                            id,
+                            function (dictionary) {
+
+                                let destination;
+
+                                if (
+                                    !enableShuffling ||
+                                    !dictionary
+                                ) {
+                                    destination =
+                                        '/' +
+                                        id +
+                                        '/' +
+                                        url;
+                                } else {
+                                    const shuffler =
+                                        new StrShuffler(
+                                            dictionary
+                                        );
+
+                                    destination =
+                                        '/' +
+                                        id +
+                                        '/' +
+                                        shuffler.shuffle(
+                                            url
+                                        );
+                                }
+
+                                window.location.href =
+                                    destination;
+                            }
+                        );
+                    }
+                );
+            }
+        );
+    }
+
+    window.addEventListener(
+        'DOMContentLoaded',
+        function () {
+
+            loadSessions();
+
+            api.needpassword(
+                function (needed) {
+                    if (needed) {
+                        document.getElementById(
+                            'password-wrapper'
+                        ).style.display = 'block';
+                    }
+                }
+            );
+
+            document.getElementById(
+                'session-advanced-toggle'
+            ).onclick = function () {
+
+                const container =
+                    document.getElementById(
+                        'session-advanced-container'
+                    );
+
+                const isHidden =
+                    container.style.display === 'none';
+
+                container.style.display =
+                    isHidden
+                        ? 'block'
+                        : 'none';
+
+                this.textContent =
+                    isHidden
+                        ? '- HIDE ADVANCED OPTIONS'
+                        : '+ SHOW ADVANCED OPTIONS';
+            };
+
+            document.getElementById(
+                'session-create-btn'
+            ).onclick = function () {
+
+                setError();
+
+                api.newsession(
+                    function (id) {
+
+                        addSession(id);
+
+                        sessionIdsStore.setDefault(
+                            id
+                        );
+
+                        document.getElementById(
+                            'session-id'
+                        ).value = id;
+                    }
+                );
+            };
+
+            document.getElementById(
+                'session-go'
+            ).onclick = go;
+
+            document.getElementById(
+                'session-url'
+            ).addEventListener(
+                'keydown',
+                function (event) {
+                    if (event.key === 'Enter') {
+                        go();
+                    }
+                }
+            );
+        }
+    );
+
 })();
