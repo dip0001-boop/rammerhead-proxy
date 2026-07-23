@@ -9,7 +9,7 @@ module.exports = {
     //// HOSTING CONFIGURATION ////
 
     bindingAddress: '0.0.0.0',
-    port: process.env.PORT || 8081,
+    port: process.env.PORT || 8000,
     crossDomainPort: null,
     publicDir: path.join(__dirname, '../public'), // set to null to disable
 
@@ -21,7 +21,7 @@ module.exports = {
 
     getServerInfo: (req) => ({
         hostname: new URL('http://' + req.headers.host).hostname,
-        port: process.env.PORT || 8081,
+        port: process.env.PORT || 8000,
         crossDomainPort: null,
         protocol: 'http:'
     }),
