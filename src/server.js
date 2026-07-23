@@ -6,41 +6,41 @@ const RammerheadProxy = require('./classes/RammerheadProxy');
 const RammerheadSessionMemoryStore = require('./classes/RammerheadMemoryStore');
 const addStaticFilesToProxy = require('./util/addStaticDirToProxy');
 
-const PORT = Number(process.env.PORT || 8000);
+const PORT = Number(process.env.PORT || 10000);
 
 console.log('Starting Rammerhead proxy server...');
 console.log(`Port: ${PORT}`);
 
-try {
-    const sessionStore = new RammerheadSessionMemoryStore();
+const sessionStore = new RammerheadSessionMemoryStore();
 
-    const proxy = new RammerheadProxy({
-        sessionStore,
-        bindingAddress: '0.0.0.0',
-        port: PORT,
-        crossDomainPort: null
-    });
+const proxy = new RammerheadProxy({
+    sessionStore,
 
-    addStaticFilesToProxy(
-        proxy,
-        path.join(__dirname, '../public')
-    );
+    bindingAddress: '0.0.0.0',
+    port: PORT,
 
-    console.log('Static frontend files registered.');
-    console.log(`Rammerhead running on port ${PORT}`);
+    // Keep this disabled for Render's single public port
+    crossDomainPort: null
+});
 
-    process.on('SIGTERM', () => {
-        proxy.close();
-        process.exit(0);
-    });
+// Register the frontend files
+addStaticFilesToProxy(
+    proxy,
+    path.join(__dirname, '../public')
+);
 
-    process.on('SIGINT', () => {
-        proxy.close();
-        process.exit(0);
-    });
+console.log('Static frontend files registered.');
+console.log(`Rammerhead running on port ${PORT}`);
 
-} catch (error) {
-    console.error('Fatal error during startup:');
-    console.error(error);
-    process.exit(1);
-}
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('Received SIGTERM. Shutting down...');
+    proxy.close();
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('Received SIGINT. Shutting down...');
+    proxy.close();
+    process.exit(0);
+});
