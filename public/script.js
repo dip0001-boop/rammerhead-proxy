@@ -1,597 +1,468 @@
 'use strict';
 
-const STORAGE_KEY = 'vault_sessions';
-
-const games = [
-{
-name: 'Shell Shockers',
-description: 'Egg-based multiplayer shooter',
-url: 'https://shellshock.io',
-icon: '🥚'
-},
-{
-name: 'Krunker',
-description: 'Fast-paced browser FPS',
-url: 'https://krunker.io',
-icon: '🎯'
-},
-{
-name: '1v1.LOL',
-description: 'Build and battle',
-url: 'https://1v1.lol',
-icon: '⚔'
-},
-{
-name: 'Slope',
-description: 'Endless downhill runner',
-url: 'https://slopegame.io',
-icon: '◈'
-},
-{
-name: 'Retro Bowl',
-description: 'Classic football management',
-url: 'https://retrobowl.me',
-icon: '🏈'
-},
-{
-name: 'Drift Hunters',
-description: 'Browser drifting game',
-url: 'https://drifthunters.io',
-icon: '🏎'
-},
-{
-name: 'Minecraft Classic',
-description: 'Classic browser Minecraft',
-url: 'https://classic.minecraft.net',
-icon: '▦'
-},
-{
-name: 'Agar.io',
-description: 'Grow and dominate',
-url: 'https://agar.io',
-icon: '●'
-}
-];
+const password = 'banana13!';
 
 const $ = (id) => document.getElementById(id);
 
-const dashboardView = $('dashboard-view');
-const browserView = $('browser-view');
-
-const sessionUrl = $('session-url');
-const bottomUrl = $('bottom-url');
-
-const sessionIdInput = $('session-id');
-const sessionPassword = $('session-password');
-const passwordWrapper = $('password-wrapper');
-
-const sessionCreateButton = $('session-create-btn');
-const sessionGoButton = $('session-go');
-const browserGoButton = $('browser-go');
-
 const errorText = $('error-text');
-const gamesGrid = $('games-grid');
 
-const bottomBrowser = $('bottom-browser');
-const bottomToggle = $('bottom-toggle');
+function showError(message) {
+    if (!errorText) return;
 
-const sessionsTable = $('session-table-body');
-
-let currentSession = localStorage.getItem('vault_current_session') || null;
-let currentUrl = null;
-
-/* =========================
-SESSION STORAGE
-========================= */
-
-function getStoredSessions() {
-try {
-return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-} catch {
-return {};
-}
+    errorText.textContent = message;
+    errorText.style.display = 'block';
 }
 
-function saveStoredSessions(sessions) {
-localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-}
+function clearError() {
+    if (!errorText) return;
 
-function generateSessionId() {
-const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-
-```
-let id = '';
-
-for (let i = 0; i < 16; i++) {
-    id += chars[Math.floor(Math.random() * chars.length)];
-}
-
-return id;
-```
-
-}
-
-function createSession() {
-const sessions = getStoredSessions();
-
-```
-const id = generateSessionId();
-
-sessions[id] = {
-    id,
-    created: new Date().toISOString()
-};
-
-saveStoredSessions(sessions);
-
-currentSession = id;
-
-localStorage.setItem('vault_current_session', id);
-
-sessionIdInput.value = id;
-
-renderSessions();
-
-return id;
-```
-
-}
-
-function selectSession(id) {
-const sessions = getStoredSessions();
-
-```
-if (!sessions[id]) {
-    showError('That session does not exist.');
-    return;
-}
-
-currentSession = id;
-
-localStorage.setItem('vault_current_session', id);
-
-sessionIdInput.value = id;
-
-hideError();
-
-renderSessions();
-```
-
-}
-
-function deleteSession(id) {
-const sessions = getStoredSessions();
-
-```
-delete sessions[id];
-
-saveStoredSessions(sessions);
-
-if (currentSession === id) {
-    currentSession = null;
-
-    localStorage.removeItem('vault_current_session');
-
-    sessionIdInput.value = '';
-}
-
-renderSessions();
-```
-
-}
-
-function renderSessions() {
-if (!sessionsTable) return;
-
-```
-const sessions = getStoredSessions();
-
-sessionsTable.innerHTML = '';
-
-const entries = Object.values(sessions);
-
-if (!entries.length) {
-    sessionsTable.innerHTML = `
-        <tr>
-            <td colspan="3">
-                No active local sessions.
-            </td>
-        </tr>
-    `;
-
-    return;
-}
-
-for (const session of entries) {
-    const row = document.createElement('tr');
-
-    const date = new Date(session.created);
-
-    row.innerHTML = `
-        <td>${escapeHtml(session.id)}</td>
-        <td>${date.toLocaleString()}</td>
-        <td>
-            <div class="session-action">
-                <button data-select-session="${escapeHtml(session.id)}">
-                    OPEN
-                </button>
-
-                <button data-delete-session="${escapeHtml(session.id)}">
-                    DELETE
-                </button>
-            </div>
-        </td>
-    `;
-
-    sessionsTable.appendChild(row);
-}
-
-sessionsTable.querySelectorAll('[data-select-session]').forEach((button) => {
-    button.addEventListener('click', () => {
-        selectSession(button.dataset.selectSession);
-    });
-});
-
-sessionsTable.querySelectorAll('[data-delete-session]').forEach((button) => {
-    button.addEventListener('click', () => {
-        deleteSession(button.dataset.deleteSession);
-    });
-});
-```
-
-}
-
-/* =========================
-RAMMERHEAD URL
-========================= */
-
-function getProxyUrl(url) {
-if (!currentSession) {
-throw new Error('Create or select a session first.');
-}
-
-```
-const encodedUrl = encodeURIComponent(url);
-
-return `/session/${encodeURIComponent(currentSession)}/${encodedUrl}`;
-```
-
+    errorText.textContent = '';
+    errorText.style.display = 'none';
 }
 
 function normalizeUrl(value) {
-value = value.trim();
-
-```
-if (!value) {
-    return null;
-}
-
-if (/^https?:\/\//i.test(value)) {
-    return value;
-}
-
-if (
-    value.includes('.') &&
-    !value.includes(' ')
-) {
-    return `https://${value}`;
-}
-
-return `https://www.google.com/search?q=${encodeURIComponent(value)}`;
-```
-
-}
-
-function go(value) {
-const url = normalizeUrl(value);
-
-```
-if (!url) {
-    showError('Enter a URL or search term.');
-    return;
-}
-
-if (!currentSession) {
-    showError('Create a session before browsing.');
-    return;
-}
-
-hideError();
-
-currentUrl = url;
-
-const proxyUrl = getProxyUrl(url);
-
-window.location.href = proxyUrl;
-```
-
-}
-
-function openGame(game) {
-if (!currentSession) {
-showError('Create a session before opening a game.');
-return;
-}
-
-```
-go(game.url);
-```
-
-}
-
-/* =========================
-DASHBOARD
-========================= */
-
-function showDashboard() {
-dashboardView.style.display = '';
-
-```
-browserView.style.display = 'none';
-
-window.scrollTo({
-    top: 0,
-    behavior: 'smooth'
-});
-```
-
-}
-
-function showBrowser() {
-dashboardView.style.display = '';
-
-```
-browserView.style.display = '';
-
-browserView.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start'
-});
-```
-
-}
-
-function showGames() {
-const gamesSection = $('games-section');
-
-```
-if (!gamesSection) return;
-
-gamesSection.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start'
-});
-```
-
-}
-
-function showSessions() {
-const sessionsSection = $('sessions-section');
-
-```
-if (!sessionsSection) return;
-
-sessionsSection.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start'
-});
-```
-
-}
-
-/* =========================
-GAMES
-========================= */
-
-function renderGames() {
-if (!gamesGrid) return;
-
-```
-gamesGrid.innerHTML = '';
-
-games.forEach((game) => {
-    const card = document.createElement('button');
-
-    card.type = 'button';
-
-    card.className = 'game-card';
-
-    card.innerHTML = `
-        <span class="game-icon">${game.icon}</span>
-        <h3>${escapeHtml(game.name)}</h3>
-        <p>${escapeHtml(game.description)}</p>
-    `;
-
-    card.addEventListener('click', () => {
-        openGame(game);
-    });
-
-    gamesGrid.appendChild(card);
-});
-```
-
-}
-
-/* =========================
-BOTTOM BROWSER BAR
-========================= */
-
-function toggleBottomBrowser() {
-bottomBrowser.classList.toggle('collapsed');
-
-```
-const collapsed = bottomBrowser.classList.contains('collapsed');
-
-bottomToggle.querySelector('span').textContent = collapsed
-    ? '⌄'
-    : '⌃';
-```
-
-}
-
-function syncUrlInputs(value) {
-sessionUrl.value = value;
-
-```
-bottomUrl.value = value;
-```
-
-}
-
-function browserNavigate() {
-const value = bottomUrl.value.trim();
-
-```
-syncUrlInputs(value);
-
-go(value);
-```
-
-}
-
-function browserBack() {
-window.history.back();
-}
-
-function browserForward() {
-window.history.forward();
-}
-
-function browserReload() {
-window.location.reload();
-}
-
-/* =========================
-ERROR HANDLING
-========================= */
-
-function showError(message) {
-errorText.textContent = message;
-
-```
-errorText.style.display = 'block';
-```
-
-}
-
-function hideError() {
-errorText.textContent = '';
-
-```
-errorText.style.display = 'none';
-```
-
-}
-
-/* =========================
-HELPERS
-========================= */
-
-function escapeHtml(value) {
-return String(value)
-.replaceAll('&', '&')
-.replaceAll('<', '<')
-.replaceAll('>', '>')
-.replaceAll('"', '"')
-.replaceAll("'", ''');
-}
-
-/* =========================
-EVENT LISTENERS
-========================= */
-
-sessionCreateButton.addEventListener('click', () => {
-createSession();
-});
-
-sessionGoButton.addEventListener('click', () => {
-go(sessionUrl.value);
-});
-
-browserGoButton.addEventListener('click', () => {
-browserNavigate();
-});
-
-sessionUrl.addEventListener('keydown', (event) => {
-if (event.key === 'Enter') {
-go(sessionUrl.value);
-}
-});
-
-bottomUrl.addEventListener('keydown', (event) => {
-if (event.key === 'Enter') {
-browserNavigate();
-}
-});
-
-bottomToggle.addEventListener('click', () => {
-toggleBottomBrowser();
-});
-
-$('browser-back')?.addEventListener('click', browserBack);
-
-$('browser-forward')?.addEventListener('click', browserForward);
-
-$('browser-reload')?.addEventListener('click', browserReload);
-
-$('browser-home')?.addEventListener('click', showDashboard);
-
-$('browser-home-button')?.addEventListener('click', showDashboard);
-
-$('view-all-games')?.addEventListener('click', showGames);
-
-document.querySelectorAll('[data-action="browser"]').forEach((button) => {
-button.addEventListener('click', showBrowser);
-});
-
-document.querySelectorAll('[data-action="games"]').forEach((button) => {
-button.addEventListener('click', showGames);
-});
-
-document.querySelectorAll('[data-action="sessions"]').forEach((button) => {
-button.addEventListener('click', showSessions);
-});
-
-$('session-advanced-toggle')?.addEventListener('click', () => {
-const container = $('session-advanced-container');
-
-```
-const isHidden = container.style.display === 'none';
-
-container.style.display = isHidden ? 'block' : 'none';
-
-$('session-advanced-toggle').textContent = isHidden
-    ? '- HIDE ADVANCED OPTIONS'
-    : '+ SHOW ADVANCED OPTIONS';
-```
-
-});
-
-/* =========================
-INITIALIZATION
-========================= */
-
-function initialize() {
-renderGames();
-
-```
-renderSessions();
-
-if (currentSession) {
-    const sessions = getStoredSessions();
-
-    if (sessions[currentSession]) {
-        sessionIdInput.value = currentSession;
-    } else {
-        currentSession = null;
-
-        localStorage.removeItem('vault_current_session');
+    value = String(value || '').trim();
+
+    if (!value) {
+        return '';
+    }
+
+    if (!/^https?:\/\//i.test(value)) {
+        value = 'https://' + value;
+    }
+
+    try {
+        return new URL(value).toString();
+    } catch {
+        return '';
     }
 }
 
-bottomBrowser.classList.add('collapsed');
-```
-
+function getSessionId() {
+    return $('session-id')?.value?.trim() || '';
 }
 
-initialize();
+function getSessionPassword() {
+    return $('session-password')?.value || password;
+}
+
+function getSessionUrl() {
+    return normalizeUrl($('session-url')?.value);
+}
+
+function buildProxyUrl(url) {
+    const sessionId = getSessionId();
+
+    if (!sessionId) {
+        showError('Create a session first.');
+        return null;
+    }
+
+    const encodedUrl = encodeURIComponent(url);
+
+    return `/session/${encodeURIComponent(sessionId)}/${encodedUrl}`;
+}
+
+/*
+|--------------------------------------------------------------------------
+| SESSION CREATION
+|--------------------------------------------------------------------------
+*/
+
+async function createSession() {
+    clearError();
+
+    const sessionIdInput = $('session-id');
+
+    if (!sessionIdInput) {
+        return;
+    }
+
+    const requestedId =
+        sessionIdInput.value.trim() ||
+        Math.random().toString(36).slice(2, 12);
+
+    try {
+        const response = await fetch(
+            `/api/newsession?id=${encodeURIComponent(requestedId)}&pwd=${encodeURIComponent(getSessionPassword())}`
+        );
+
+        if (!response.ok) {
+            throw new Error('Session creation failed.');
+        }
+
+        const data = await response.json().catch(() => null);
+
+        if (data && data.id) {
+            sessionIdInput.value = data.id;
+        } else {
+            sessionIdInput.value = requestedId;
+        }
+
+        loadSessions();
+
+    } catch (error) {
+        console.error(error);
+        showError('Unable to create session.');
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| OPEN DESTINATION
+|--------------------------------------------------------------------------
+*/
+
+function openDestination(rawUrl) {
+    clearError();
+
+    const url = normalizeUrl(rawUrl);
+
+    if (!url) {
+        showError('Enter a valid destination URL.');
+        return;
+    }
+
+    const sessionId = getSessionId();
+
+    if (!sessionId) {
+        showError('Create a session before opening a destination.');
+        return;
+    }
+
+    const proxyUrl = buildProxyUrl(url);
+
+    if (proxyUrl) {
+        window.location.href = proxyUrl;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| SESSION LIST
+|--------------------------------------------------------------------------
+*/
+
+async function loadSessions() {
+    const tableBody = $('session-table-body');
+
+    if (!tableBody) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `/api/sessions?pwd=${encodeURIComponent(getSessionPassword())}`
+        );
+
+        if (!response.ok) {
+            return;
+        }
+
+        const sessions = await response.json();
+
+        tableBody.innerHTML = '';
+
+        if (!Array.isArray(sessions) || sessions.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="3">No active sessions.</td>
+                </tr>
+            `;
+
+            return;
+        }
+
+        sessions.forEach((session) => {
+            const id =
+                typeof session === 'string'
+                    ? session
+                    : session.id || session.sessionId;
+
+            if (!id) {
+                return;
+            }
+
+            const row = document.createElement('tr');
+
+            row.innerHTML = `
+                <td>${escapeHtml(id)}</td>
+                <td>ACTIVE</td>
+                <td>
+                    <div class="session-action">
+                        <button type="button" data-open-session="${escapeHtml(id)}">
+                            OPEN
+                        </button>
+
+                        <button type="button" data-delete-session="${escapeHtml(id)}">
+                            DELETE
+                        </button>
+                    </div>
+                </td>
+            `;
+
+            tableBody.appendChild(row);
+        });
+
+    } catch (error) {
+        console.error('Could not load sessions:', error);
+    }
+}
+
+async function deleteSession(id) {
+    try {
+        await fetch(
+            `/api/session/${encodeURIComponent(id)}?pwd=${encodeURIComponent(getSessionPassword())}`,
+            {
+                method: 'DELETE'
+            }
+        );
+
+        loadSessions();
+
+    } catch (error) {
+        console.error('Could not delete session:', error);
+    }
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+/*
+|--------------------------------------------------------------------------
+| SECTIONS
+|--------------------------------------------------------------------------
+*/
+
+const dashboard = document.querySelector('.vault-dashboard');
+const browserSection = $('browser-section');
+const gamesSection = $('games-section');
+const gatewaySection = $('gateway-section');
+
+function hideSections() {
+    if (dashboard) dashboard.style.display = 'none';
+    if (browserSection) browserSection.style.display = 'none';
+    if (gamesSection) gamesSection.style.display = 'none';
+    if (gatewaySection) gatewaySection.style.display = 'none';
+}
+
+function setActiveNav(id) {
+    document.querySelectorAll('.bottom-nav-item').forEach((button) => {
+        button.classList.remove('active');
+    });
+
+    const button = $(id);
+
+    if (button) {
+        button.classList.add('active');
+    }
+}
+
+function showHome() {
+    hideSections();
+
+    if (dashboard) {
+        dashboard.style.display = 'block';
+    }
+
+    setActiveNav('nav-home');
+}
+
+function showBrowser() {
+    hideSections();
+
+    if (browserSection) {
+        browserSection.style.display = 'block';
+    }
+
+    setActiveNav('nav-browser');
+}
+
+function showGames() {
+    hideSections();
+
+    if (gamesSection) {
+        gamesSection.style.display = 'block';
+    }
+
+    setActiveNav('nav-games');
+}
+
+function showGateway() {
+    hideSections();
+
+    if (gatewaySection) {
+        gatewaySection.style.display = 'block';
+    }
+
+    setActiveNav('nav-gateway');
+}
+
+/*
+|--------------------------------------------------------------------------
+| GAMES
+|--------------------------------------------------------------------------
+*/
+
+const games = [
+    {
+        name: 'Shell Shockers',
+        url: 'https://shellshock.io/',
+        description: 'Multiplayer egg shooter'
+    },
+    {
+        name: 'Krunker',
+        url: 'https://krunker.io/',
+        description: 'Fast browser FPS'
+    },
+    {
+        name: 'Agar.io',
+        url: 'https://agar.io/',
+        description: 'Grow and compete'
+    },
+    {
+        name: 'Slither.io',
+        url: 'https://slither.io/',
+        description: 'Classic multiplayer snake'
+    },
+    {
+        name: '2048',
+        url: 'https://play2048.co/',
+        description: 'Puzzle game'
+    },
+    {
+        name: 'Tetris',
+        url: 'https://tetris.com/play-tetris',
+        description: 'Classic block puzzle'
+    }
+];
+
+function renderGames() {
+    const grid = $('games-grid');
+
+    if (!grid) {
+        return;
+    }
+
+    grid.innerHTML = '';
+
+    games.forEach((game) => {
+        const card = document.createElement('button');
+
+        card.type = 'button';
+        card.className = 'game-card';
+
+        card.innerHTML = `
+            <strong>${escapeHtml(game.name)}</strong>
+            <small>${escapeHtml(game.description)}</small>
+        `;
+
+        card.addEventListener('click', () => {
+            openDestination(game.url);
+        });
+
+        grid.appendChild(card);
+    });
+}
+
+/*
+|--------------------------------------------------------------------------
+| EVENT HANDLERS
+|--------------------------------------------------------------------------
+*/
+
+$('session-create-btn')?.addEventListener('click', createSession);
+
+$('session-go')?.addEventListener('click', () => {
+    openDestination(getSessionUrl());
+});
+
+$('dashboard-go')?.addEventListener('click', () => {
+    openDestination($('dashboard-url')?.value);
+});
+
+$('browser-go')?.addEventListener('click', () => {
+    openDestination($('browser-url')?.value);
+});
+
+$('dashboard-url')?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        openDestination(event.target.value);
+    }
+});
+
+$('browser-url')?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        openDestination(event.target.value);
+    }
+});
+
+$('open-browser-card')?.addEventListener('click', showBrowser);
+
+$('open-games-card')?.addEventListener('click', showGames);
+
+$('games-back')?.addEventListener('click', showHome);
+
+$('nav-home')?.addEventListener('click', showHome);
+
+$('nav-browser')?.addEventListener('click', showBrowser);
+
+$('nav-games')?.addEventListener('click', showGames);
+
+$('nav-gateway')?.addEventListener('click', showGateway);
+
+document.querySelectorAll('.quick-link').forEach((button) => {
+    button.addEventListener('click', () => {
+        openDestination(button.dataset.url);
+    });
+});
+
+$('session-table-body')?.addEventListener('click', (event) => {
+    const openButton = event.target.closest('[data-open-session]');
+    const deleteButton = event.target.closest('[data-delete-session]');
+
+    if (openButton) {
+        const id = openButton.dataset.openSession;
+
+        $('session-id').value = id;
+
+        showBrowser();
+    }
+
+    if (deleteButton) {
+        deleteSession(deleteButton.dataset.deleteSession);
+    }
+});
+
+$('session-advanced-toggle')?.addEventListener('click', () => {
+    const container = $('session-advanced-container');
+    const button = $('session-advanced-toggle');
+
+    if (!container || !button) {
+        return;
+    }
+
+    const isHidden = container.style.display === 'none';
+
+    container.style.display = isHidden ? 'block' : 'none';
+
+    button.textContent = isHidden
+        ? '- HIDE ADVANCED OPTIONS'
+        : '+ SHOW ADVANCED OPTIONS';
+});
+
+/*
+|--------------------------------------------------------------------------
+| INITIALIZATION
+|--------------------------------------------------------------------------
+*/
+
+renderGames();
+loadSessions();
+showHome();
