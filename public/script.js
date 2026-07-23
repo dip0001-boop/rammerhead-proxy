@@ -1,6 +1,13 @@
 'use strict';
 
+/* -----------------------------
+   PASSWORD SYSTEM
+----------------------------- */
+
 const password = 'banana13!';
+
+const MAX_ATTEMPTS = 3;
+const LOCKOUT_TIME = 60 * 60 * 1000;
 
 const $ = (id) => document.getElementById(id);
 
@@ -19,6 +26,165 @@ function clearError() {
     errorText.textContent = '';
     errorText.style.display = 'none';
 }
+
+/* -----------------------------
+   LOGIN SYSTEM
+----------------------------- */
+
+function getLoginAttempts() {
+    return Number(localStorage.getItem('vault-login-attempts') || 0);
+}
+
+function setLoginAttempts(attempts) {
+    localStorage.setItem('vault-login-attempts', String(attempts));
+}
+
+function getLockoutTime() {
+    return Number(localStorage.getItem('vault-lockout-time') || 0);
+}
+
+function isLockedOut() {
+    const lockoutTime = getLockoutTime();
+
+    if (!lockoutTime) return false;
+
+    if (Date.now() < lockoutTime) {
+        return true;
+    }
+
+    localStorage.removeItem('vault-lockout-time');
+    setLoginAttempts(0);
+
+    return false;
+}
+
+function getRemainingLockoutTime() {
+    const remaining = getLockoutTime() - Date.now();
+
+    if (remaining <= 0) return 0;
+
+    return Math.ceil(remaining / 60000);
+}
+
+function isLoggedIn() {
+    return sessionStorage.getItem('vault-authenticated') === 'true';
+}
+
+function login() {
+    const input = $('password-input');
+
+    if (!input) {
+        console.error('Password input not found.');
+        return;
+    }
+
+    clearError();
+
+    if (isLockedOut()) {
+        showError(
+            `Too many incorrect attempts. Try again in ${getRemainingLockoutTime()} minutes.`
+        );
+        return;
+    }
+
+    const enteredPassword = input.value;
+
+    if (enteredPassword === password) {
+        sessionStorage.setItem('vault-authenticated', 'true');
+
+        setLoginAttempts(0);
+        localStorage.removeItem('vault-lockout-time');
+
+        showDashboard();
+
+        input.value = '';
+
+        return;
+    }
+
+    const attempts = getLoginAttempts() + 1;
+
+    setLoginAttempts(attempts);
+
+    if (attempts >= MAX_ATTEMPTS) {
+        localStorage.setItem(
+            'vault-lockout-time',
+            String(Date.now() + LOCKOUT_TIME)
+        );
+
+        showError(
+            'Too many incorrect attempts. Access locked for 1 hour.'
+        );
+
+        input.value = '';
+
+        return;
+    }
+
+    const attemptsRemaining = MAX_ATTEMPTS - attempts;
+
+    showError(
+        `Incorrect password. ${attemptsRemaining} attempt(s) remaining.`
+    );
+
+    input.value = '';
+}
+
+function showLogin() {
+    const loginScreen = $('login-screen');
+    const app = $('app');
+
+    if (loginScreen) {
+        loginScreen.style.display = 'flex';
+    }
+
+    if (app) {
+        app.style.display = 'none';
+    }
+}
+
+function showDashboard() {
+    const loginScreen = $('login-screen');
+    const app = $('app');
+
+    if (loginScreen) {
+        loginScreen.style.display = 'none';
+    }
+
+    if (app) {
+        app.style.display = 'block';
+    }
+}
+
+function checkAuthentication() {
+    if (isLockedOut()) {
+        showLogin();
+
+        showError(
+            `Too many incorrect attempts. Try again in ${getRemainingLockoutTime()} minutes.`
+        );
+
+        return;
+    }
+
+    if (isLoggedIn()) {
+        showDashboard();
+    } else {
+        showLogin();
+    }
+}
+
+$('login-btn')?.addEventListener('click', login);
+
+$('password-input')?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        login();
+    }
+});
+
+/* -----------------------------
+   URL HELPERS
+----------------------------- */
 
 function normalizeUrl(value) {
     value = String(value || '').trim();
@@ -400,6 +566,8 @@ $('session-advanced-toggle')?.addEventListener('click', () => {
 /* -----------------------------
    START
 ----------------------------- */
+
+checkAuthentication();
 
 renderGames();
 loadSessions();
