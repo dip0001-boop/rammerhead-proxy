@@ -1,22 +1,19 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs');
 const http = require('http');
 
 const RammerheadProxy = require('./classes/RammerheadProxy');
-const RammerheadLogging = require('./classes/RammerheadLogging');
-const RammerheadSession = require('./classes/RammerheadSession');
-const RammerheadSessionAbstractStore = require('./classes/RammerheadSessionAbstractStore');
-const RammerheadSessionFileCache = require('./classes/RammerheadSessionFileCache');
 const RammerheadSessionMemoryStore = require('./classes/RammerheadMemoryStore');
-
-const generateId = require('./util/generateId');
 const addStaticFilesToProxy = require('./util/addStaticDirToProxy');
-const StrShuffler = require('./util/StrShuffler');
-const URLPath = require('./util/URLPath');
 
-// Standard port setup (Back4App passes process.env.PORT)
+// Render provides the port through process.env.PORT
 const PORT = process.env.PORT || 8000;
+
+// Frontend directory
+const PUBLIC_DIR = path.join(__dirname, '../public');
+const INDEX_FILE = path.join(PUBLIC_DIR, 'index.html');
 
 console.log('Starting Rammerhead proxy server...');
 console.log(`Port: ${PORT}`);
@@ -25,42 +22,68 @@ try {
     // Create the session store
     const sessionStore = new RammerheadSessionMemoryStore();
 
-    // Create the proxy instance
+    // Create the Rammerhead proxy
     const proxy = new RammerheadProxy({
         sessionStore
     });
 
-    // Mount static web interface files (HTML, CSS, client-side JS)
-    addStaticFilesToProxy(proxy, path.join(__dirname, '../public'));
+    // Add your public frontend files to Rammerhead
+    addStaticFilesToProxy(proxy, PUBLIC_DIR);
 
-    // Log available methods on proxy for debugging
-    const proxyMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(proxy));
-    console.log('Loaded RammerheadProxy methods:', proxyMethods);
+    console.log('Frontend directory:', PUBLIC_DIR);
 
     // Create HTTP server
     const server = http.createServer((req, res) => {
-        // 1. Host health check endpoints (returns 200 OK)
+        // Health checks for Render
         if (req.url === '/healthz' || req.url === '/ping') {
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            res.writeHead(200, {
+                'Content-Type': 'text/plain'
+            });
+
             return res.end('OK');
         }
 
-        // 2. Safe request dispatching
-        let handled = false;
-        if (typeof proxy.onRequest === 'function') {
-            handled = proxy.onRequest(req, res);
-        } else if (typeof proxy.handleRequest === 'function') {
-            handled = proxy.handleRequest(req, res);
+        // Serve THE VAULT homepage
+        if (req.url === '/' || req.url === '/index.html') {
+            if (fs.existsSync(INDEX_FILE)) {
+                res.writeHead(200, {
+                    'Content-Type': 'text/html; charset=utf-8'
+                });
+
+                return res.end(fs.readFileSync(INDEX_FILE));
+            }
+
+            res.writeHead(404, {
+                'Content-Type': 'text/plain'
+            });
+
+            return res.end('Frontend index.html not found');
         }
 
-        if (handled) return;
+        // Let Rammerhead handle proxy and static file requests
+        if (typeof proxy.onRequest === 'function') {
+            const handled = proxy.onRequest(req, res);
 
-        // 3. Fallback response if proxy/static files don't handle request
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end('Rammerhead Proxy Online');
+            if (handled) {
+                return;
+            }
+        } else if (typeof proxy.handleRequest === 'function') {
+            const handled = proxy.handleRequest(req, res);
+
+            if (handled) {
+                return;
+            }
+        }
+
+        // Fallback
+        res.writeHead(404, {
+            'Content-Type': 'text/plain'
+        });
+
+        res.end('Not Found');
     });
 
-    // Handle WebSocket upgrade requests safely
+    // Handle WebSocket connections
     server.on('upgrade', (req, socket, head) => {
         if (typeof proxy.onUpgrade === 'function') {
             proxy.onUpgrade(req, socket, head);
@@ -71,24 +94,32 @@ try {
         }
     });
 
-    // Attach server if method exists
+    // Attach proxy if supported
     if (typeof proxy.attach === 'function') {
         proxy.attach(server);
     }
 
+    // Start server
     server.listen(PORT, '0.0.0.0', () => {
         console.log(`Rammerhead proxy listening on 0.0.0.0:${PORT}`);
+        console.log(`THE VAULT frontend available at /`);
     });
 
-    // Shutdown handling
+    // Graceful shutdown
     process.on('SIGTERM', () => {
         console.log('Received SIGTERM, shutting down...');
-        server.close(() => process.exit(0));
+
+        server.close(() => {
+            process.exit(0);
+        });
     });
 
     process.on('SIGINT', () => {
         console.log('Received SIGINT, shutting down...');
-        server.close(() => process.exit(0));
+
+        server.close(() => {
+            process.exit(0);
+        });
     });
 
 } catch (error) {
