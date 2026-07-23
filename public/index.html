@@ -1,290 +1,225 @@
 <!DOCTYPE html>
-
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-```
-<link rel="icon" type="image/png" href="/favicon.png">
-<link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="stylesheet" href="/style.css">
 
-<script src="/script.js" defer></script>
+    <script src="/script.js" defer></script>
 
-<title>THE VAULT</title>
-```
-
+    <title>THE VAULT</title>
 </head>
 
 <body>
 
-```
-<header class="vault-header">
+    <header class="vault-header">
 
-    <div class="vault-logo">
-        <img src="/logo.png" alt="THE VAULT">
-    </div>
-
-    <div>
-        <h1>THE VAULT</h1>
-        <p>Private Web Gateway</p>
-    </div>
-
-</header>
-
-
-<main class="vault-container">
-
-    <div class="vault-status">
-        <span class="status-dot"></span>
-        <span>VAULT SYSTEM ONLINE</span>
-    </div>
-
-
-    <section class="vault-card">
-
-        <div class="vault-card-header">
-            <h2>ACCESS GATEWAY</h2>
-
-            <span class="vault-badge">
-                SECURE
-            </span>
+        <div class="vault-logo">
+            <img src="/logo.png" alt="THE VAULT">
         </div>
 
-
-        <p class="vault-description">
-            Enter a destination below to access the web through your secure vault session.
-        </p>
-
-
-        <p
-            class="vault-notice"
-            id="error-text"
-            style="display: none"
-        >
-            Error: some text
-        </p>
-
-
-        <div
-            class="vault-input-group"
-            id="password-wrapper"
-            style="display: none"
-        >
-
-            <label for="session-password">
-                SESSION PASSWORD
-            </label>
-
-            <input
-                type="password"
-                id="session-password"
-                placeholder="Enter session password..."
-            >
-
+        <div>
+            <h1>THE VAULT</h1>
+            <p>Private Web Gateway</p>
         </div>
 
+    </header>
 
-        <div class="vault-input-group">
+    <main class="vault-container">
 
-            <label for="session-url">
-                DESTINATION URL
-            </label>
+        <div class="vault-status">
+            <span class="status-dot"></span>
+            <span>VAULT SYSTEM ONLINE</span>
+        </div>
 
-            <div class="vault-url-row">
+        <section class="vault-card">
 
-                <input
-                    type="text"
-                    id="session-url"
-                    placeholder="https://www.google.com/"
-                >
-
-                <button
-                    id="session-go"
-                    class="vault-button primary"
-                    type="button"
-                >
-                    ENTER
-                </button>
-
+            <div class="vault-card-header">
+                <h2>ACCESS GATEWAY</h2>
+                <span class="vault-badge">SECURE</span>
             </div>
 
-        </div>
+            <p class="vault-description">
+                Enter a destination below to access the web through your secure vault session.
+            </p>
 
+            <p class="vault-notice" id="error-text" style="display: none"></p>
 
-        <div class="vault-input-group">
-
-            <label for="session-id">
-                SESSION ID
-            </label>
-
-            <div class="vault-url-row">
+            <div class="vault-input-group" id="password-wrapper" style="display: none">
+                <label for="session-password">SESSION PASSWORD</label>
 
                 <input
-                    readonly
-                    type="text"
-                    id="session-id"
-                    class="disable-text"
-                    placeholder="Create or enter a session ID"
+                    type="password"
+                    id="session-password"
+                    placeholder="Enter session password..."
                 >
-
-                <button
-                    id="session-create-btn"
-                    class="vault-button secondary"
-                    type="button"
-                >
-                    CREATE SESSION
-                </button>
-
             </div>
-
-        </div>
-
-
-        <button
-            class="advanced-toggle"
-            id="session-advanced-toggle"
-            type="button"
-        >
-            + SHOW ADVANCED OPTIONS
-        </button>
-
-
-        <div
-            class="advanced-container"
-            id="session-advanced-container"
-            style="display: none"
-        >
-
-            <div class="vault-checkbox">
-
-                <input
-                    type="checkbox"
-                    id="session-shuffling"
-                    checked
-                >
-
-                <label for="session-shuffling">
-                    ENABLE URL SHUFFLING
-                </label>
-
-            </div>
-
 
             <div class="vault-input-group">
 
-                <label for="session-httpproxy">
-                    HTTP PROXY
+                <label for="session-url">
+                    DESTINATION URL
                 </label>
 
-                <input
-                    type="text"
-                    id="session-httpproxy"
-                    placeholder="http://username:password@proxyipaddress:proxyport"
-                >
+                <div class="vault-url-row">
+
+                    <input
+                        type="text"
+                        id="session-url"
+                        placeholder="https://www.google.com/"
+                    >
+
+                    <button
+                        id="session-go"
+                        class="vault-button primary"
+                        type="button"
+                    >
+                        ENTER
+                    </button>
+
+                </div>
 
             </div>
 
-        </div>
+            <div class="vault-input-group">
 
-    </section>
+                <label for="session-id">
+                    SESSION ID
+                </label>
 
+                <div class="vault-url-row">
 
-    <section class="vault-info">
+                    <input
+                        readonly
+                        type="text"
+                        id="session-id"
+                        placeholder="Create or enter a session ID"
+                    >
 
-        <div class="info-box">
+                    <button
+                        id="session-create-btn"
+                        class="vault-button secondary"
+                        type="button"
+                    >
+                        CREATE SESSION
+                    </button>
 
-            <span class="info-icon">
-                ◆
-            </span>
-
-            <div>
-
-                <h3>
-                    SESSION SECURITY
-                </h3>
-
-                <p>
-                    Treat every session ID like a private browser.
-                    Never share your session ID or session URL.
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <div class="info-box">
-
-            <span class="info-icon">
-                ◆
-            </span>
-
-            <div>
-
-                <h3>
-                    SESSION EXPIRATION
-                </h3>
-
-                <p>
-                    Inactive sessions are automatically deleted after 3 days.
-                </p>
+                </div>
 
             </div>
 
-        </div>
+            <button
+                class="advanced-toggle"
+                id="session-advanced-toggle"
+                type="button"
+            >
+                + SHOW ADVANCED OPTIONS
+            </button>
 
-    </section>
+            <div
+                class="advanced-container"
+                id="session-advanced-container"
+                style="display: none"
+            >
 
+                <div class="vault-checkbox">
 
-    <section class="session-section">
+                    <input
+                        type="checkbox"
+                        id="session-shuffling"
+                        checked
+                    >
 
-        <div class="section-title">
+                    <label for="session-shuffling">
+                        ENABLE URL SHUFFLING
+                    </label>
 
-            <h2>
-                ACTIVE SESSIONS
-            </h2>
+                </div>
 
-            <span>
-                VAULT LOG
-            </span>
+                <div class="vault-input-group">
 
-        </div>
+                    <label for="session-httpproxy">
+                        HTTP PROXY
+                    </label>
 
+                    <input
+                        type="text"
+                        id="session-httpproxy"
+                        placeholder="http://username:password@proxyipaddress:proxyport"
+                    >
 
-        <div class="table-wrapper">
+                </div>
 
-            <table class="session-table">
+            </div>
 
-                <thead>
+        </section>
 
-                    <tr>
+        <section class="vault-info">
 
-                        <th>
-                            SESSION ID
-                        </th>
+            <div class="info-box">
 
-                        <th>
-                            CREATED ON
-                        </th>
+                <span class="info-icon">◆</span>
 
-                    </tr>
+                <div>
+                    <h3>SESSION SECURITY</h3>
 
-                </thead>
+                    <p>
+                        Treat every session ID like a private browser.
+                        Never share your session ID or session URL.
+                    </p>
+                </div>
 
+            </div>
 
-                <tbody>
-                </tbody>
+            <div class="info-box">
 
-            </table>
+                <span class="info-icon">◆</span>
 
-        </div>
+                <div>
+                    <h3>SESSION EXPIRATION</h3>
 
-    </section>
+                    <p>
+                        Inactive sessions are automatically deleted after 3 days.
+                    </p>
+                </div>
 
-</main>
-```
+            </div>
+
+        </section>
+
+        <section class="session-section">
+
+            <div class="section-title">
+
+                <h2>ACTIVE SESSIONS</h2>
+                <span>VAULT LOG</span>
+
+            </div>
+
+            <div class="table-wrapper">
+
+                <table class="session-table">
+
+                    <thead>
+                        <tr>
+                            <th>SESSION ID</th>
+                            <th>CREATED ON</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="session-table-body"></tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+    </main>
 
 </body>
 
