@@ -15,7 +15,7 @@ const addStaticFilesToProxy = require('./util/addStaticDirToProxy');
 const StrShuffler = require('./util/StrShuffler');
 const URLPath = require('./util/URLPath');
 
-// Standard port setup
+// Standard port setup (Back4App passes process.env.PORT)
 const PORT = process.env.PORT || 8000;
 
 console.log('Starting Rammerhead proxy server...');
@@ -30,13 +30,16 @@ try {
         sessionStore
     });
 
+    // Mount static web interface files (HTML, CSS, client-side JS)
+    addStaticFilesToProxy(proxy, path.join(__dirname, '../public'));
+
     // Log available methods on proxy for debugging
     const proxyMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(proxy));
     console.log('Loaded RammerheadProxy methods:', proxyMethods);
 
     // Create HTTP server
     const server = http.createServer((req, res) => {
-        // 1. Host health check endpoints (always returns 200 OK)
+        // 1. Host health check endpoints (returns 200 OK)
         if (req.url === '/healthz' || req.url === '/ping') {
             res.writeHead(200, { 'Content-Type': 'text/plain' });
             return res.end('OK');
@@ -52,7 +55,7 @@ try {
 
         if (handled) return;
 
-        // 3. Fallback response for root visits / health checks
+        // 3. Fallback response if proxy/static files don't handle request
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         res.end('Rammerhead Proxy Online');
     });
