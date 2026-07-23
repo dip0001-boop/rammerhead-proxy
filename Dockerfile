@@ -1,10 +1,8 @@
-FROM node:18-alpine
+FROM node:18
 
 WORKDIR /app
 
-RUN apk add --no-cache git python3 make g++
-
-COPY package.json ./
+COPY package*.json ./
 
 RUN npm install
 
