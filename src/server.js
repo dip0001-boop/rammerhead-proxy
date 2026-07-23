@@ -15,7 +15,7 @@ const addStaticFilesToProxy = require('./util/addStaticDirToProxy');
 const StrShuffler = require('./util/StrShuffler');
 const URLPath = require('./util/URLPath');
 
-const PORT = process.env.PORT || 8081;
+const PORT = process.env.PORT || 8000;
 
 console.log('Starting Rammerhead proxy server...');
 console.log(`Port: ${PORT}`);
