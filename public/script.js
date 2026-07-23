@@ -23,9 +23,7 @@ function clearError() {
 function normalizeUrl(value) {
     value = String(value || '').trim();
 
-    if (!value) {
-        return '';
-    }
+    if (!value) return '';
 
     if (!/^https?:\/\//i.test(value)) {
         value = 'https://' + value;
@@ -42,8 +40,8 @@ function getSessionId() {
     return $('session-id')?.value?.trim() || '';
 }
 
-function getSessionPassword() {
-    return $('session-password')?.value || password;
+function getPassword() {
+    return password;
 }
 
 function getSessionUrl() {
@@ -58,60 +56,62 @@ function buildProxyUrl(url) {
         return null;
     }
 
-    const encodedUrl = encodeURIComponent(url);
-
-    return `/session/${encodeURIComponent(sessionId)}/${encodedUrl}`;
+    return `/session/${encodeURIComponent(sessionId)}/${encodeURIComponent(url)}`;
 }
 
-/*
-|--------------------------------------------------------------------------
-| SESSION CREATION
-|--------------------------------------------------------------------------
-*/
+/* -----------------------------
+   REAL RAMMERHEAD SESSION API
+----------------------------- */
 
 async function createSession() {
     clearError();
 
-    const sessionIdInput = $('session-id');
-
-    if (!sessionIdInput) {
-        return;
-    }
-
-    const requestedId =
-        sessionIdInput.value.trim() ||
-        Math.random().toString(36).slice(2, 12);
-
     try {
         const response = await fetch(
-            `/api/newsession?id=${encodeURIComponent(requestedId)}&pwd=${encodeURIComponent(getSessionPassword())}`
+            `/newsession?pwd=${encodeURIComponent(getPassword())}`
         );
 
         if (!response.ok) {
             throw new Error('Session creation failed.');
         }
 
-        const data = await response.json().catch(() => null);
+        const id = (await response.text()).trim();
 
-        if (data && data.id) {
-            sessionIdInput.value = data.id;
-        } else {
-            sessionIdInput.value = requestedId;
+        if (!id) {
+            throw new Error('No session ID returned.');
         }
 
-        loadSessions();
+        $('session-id').value = id;
 
+        await editSession(id);
+
+        loadSessions();
     } catch (error) {
         console.error(error);
-        showError('Unable to create session.');
+        showError('Unable to create session. Check the password.');
     }
 }
 
-/*
-|--------------------------------------------------------------------------
-| OPEN DESTINATION
-|--------------------------------------------------------------------------
-*/
+async function editSession(id) {
+    const shuffling = $('session-shuffling')?.checked ? '1' : '0';
+    const httpProxy = $('session-httpproxy')?.value?.trim() || '';
+
+    const params = new URLSearchParams({
+        id,
+        pwd: getPassword(),
+        enableShuffling: shuffling
+    });
+
+    if (httpProxy) {
+        params.set('httpProxy', httpProxy);
+    }
+
+    const response = await fetch(`/editsession?${params.toString()}`);
+
+    if (!response.ok) {
+        throw new Error('Could not configure session.');
+    }
+}
 
 function openDestination(rawUrl) {
     clearError();
@@ -123,9 +123,7 @@ function openDestination(rawUrl) {
         return;
     }
 
-    const sessionId = getSessionId();
-
-    if (!sessionId) {
+    if (!getSessionId()) {
         showError('Create a session before opening a destination.');
         return;
     }
@@ -137,89 +135,56 @@ function openDestination(rawUrl) {
     }
 }
 
-/*
-|--------------------------------------------------------------------------
-| SESSION LIST
-|--------------------------------------------------------------------------
-*/
+/* -----------------------------
+   SESSION TABLE
+----------------------------- */
 
-async function loadSessions() {
+function loadSessions() {
     const tableBody = $('session-table-body');
 
-    if (!tableBody) {
+    if (!tableBody) return;
+
+    const id = getSessionId();
+
+    if (!id) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="3">Create a session to begin.</td>
+            </tr>
+        `;
         return;
     }
 
-    try {
-        const response = await fetch(
-            `/api/sessions?pwd=${encodeURIComponent(getSessionPassword())}`
-        );
+    tableBody.innerHTML = `
+        <tr>
+            <td>${escapeHtml(id)}</td>
+            <td>ACTIVE</td>
+            <td>
+                <div class="session-action">
+                    <button type="button" data-open-session="${escapeHtml(id)}">
+                        OPEN
+                    </button>
 
-        if (!response.ok) {
-            return;
-        }
-
-        const sessions = await response.json();
-
-        tableBody.innerHTML = '';
-
-        if (!Array.isArray(sessions) || sessions.length === 0) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="3">No active sessions.</td>
-                </tr>
-            `;
-
-            return;
-        }
-
-        sessions.forEach((session) => {
-            const id =
-                typeof session === 'string'
-                    ? session
-                    : session.id || session.sessionId;
-
-            if (!id) {
-                return;
-            }
-
-            const row = document.createElement('tr');
-
-            row.innerHTML = `
-                <td>${escapeHtml(id)}</td>
-                <td>ACTIVE</td>
-                <td>
-                    <div class="session-action">
-                        <button type="button" data-open-session="${escapeHtml(id)}">
-                            OPEN
-                        </button>
-
-                        <button type="button" data-delete-session="${escapeHtml(id)}">
-                            DELETE
-                        </button>
-                    </div>
-                </td>
-            `;
-
-            tableBody.appendChild(row);
-        });
-
-    } catch (error) {
-        console.error('Could not load sessions:', error);
-    }
+                    <button type="button" data-delete-session="${escapeHtml(id)}">
+                        DELETE
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
 }
 
 async function deleteSession(id) {
     try {
         await fetch(
-            `/api/session/${encodeURIComponent(id)}?pwd=${encodeURIComponent(getSessionPassword())}`,
-            {
-                method: 'DELETE'
-            }
+            `/deletesession?id=${encodeURIComponent(id)}&pwd=${encodeURIComponent(getPassword())}`
         );
 
-        loadSessions();
+        if ($('session-id')?.value === id) {
+            $('session-id').value = '';
+        }
 
+        loadSessions();
     } catch (error) {
         console.error('Could not delete session:', error);
     }
@@ -234,11 +199,9 @@ function escapeHtml(value) {
         .replaceAll("'", '&#039;');
 }
 
-/*
-|--------------------------------------------------------------------------
-| SECTIONS
-|--------------------------------------------------------------------------
-*/
+/* -----------------------------
+   UI SECTIONS
+----------------------------- */
 
 const dashboard = document.querySelector('.vault-dashboard');
 const browserSection = $('browser-section');
@@ -257,19 +220,13 @@ function setActiveNav(id) {
         button.classList.remove('active');
     });
 
-    const button = $(id);
-
-    if (button) {
-        button.classList.add('active');
-    }
+    $(id)?.classList.add('active');
 }
 
 function showHome() {
     hideSections();
 
-    if (dashboard) {
-        dashboard.style.display = 'block';
-    }
+    if (dashboard) dashboard.style.display = 'block';
 
     setActiveNav('nav-home');
 }
@@ -277,9 +234,7 @@ function showHome() {
 function showBrowser() {
     hideSections();
 
-    if (browserSection) {
-        browserSection.style.display = 'block';
-    }
+    if (browserSection) browserSection.style.display = 'block';
 
     setActiveNav('nav-browser');
 }
@@ -287,9 +242,7 @@ function showBrowser() {
 function showGames() {
     hideSections();
 
-    if (gamesSection) {
-        gamesSection.style.display = 'block';
-    }
+    if (gamesSection) gamesSection.style.display = 'block';
 
     setActiveNav('nav-games');
 }
@@ -297,18 +250,14 @@ function showGames() {
 function showGateway() {
     hideSections();
 
-    if (gatewaySection) {
-        gatewaySection.style.display = 'block';
-    }
+    if (gatewaySection) gatewaySection.style.display = 'block';
 
     setActiveNav('nav-gateway');
 }
 
-/*
-|--------------------------------------------------------------------------
-| GAMES
-|--------------------------------------------------------------------------
-*/
+/* -----------------------------
+   GAMES
+----------------------------- */
 
 const games = [
     {
@@ -346,9 +295,7 @@ const games = [
 function renderGames() {
     const grid = $('games-grid');
 
-    if (!grid) {
-        return;
-    }
+    if (!grid) return;
 
     grid.innerHTML = '';
 
@@ -371,11 +318,9 @@ function renderGames() {
     });
 }
 
-/*
-|--------------------------------------------------------------------------
-| EVENT HANDLERS
-|--------------------------------------------------------------------------
-*/
+/* -----------------------------
+   EVENTS
+----------------------------- */
 
 $('session-create-btn')?.addEventListener('click', createSession);
 
@@ -428,10 +373,7 @@ $('session-table-body')?.addEventListener('click', (event) => {
     const deleteButton = event.target.closest('[data-delete-session]');
 
     if (openButton) {
-        const id = openButton.dataset.openSession;
-
-        $('session-id').value = id;
-
+        $('session-id').value = openButton.dataset.openSession;
         showBrowser();
     }
 
@@ -444,9 +386,7 @@ $('session-advanced-toggle')?.addEventListener('click', () => {
     const container = $('session-advanced-container');
     const button = $('session-advanced-toggle');
 
-    if (!container || !button) {
-        return;
-    }
+    if (!container || !button) return;
 
     const isHidden = container.style.display === 'none';
 
@@ -457,11 +397,9 @@ $('session-advanced-toggle')?.addEventListener('click', () => {
         : '+ SHOW ADVANCED OPTIONS';
 });
 
-/*
-|--------------------------------------------------------------------------
-| INITIALIZATION
-|--------------------------------------------------------------------------
-*/
+/* -----------------------------
+   START
+----------------------------- */
 
 renderGames();
 loadSessions();
