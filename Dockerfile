@@ -1,9 +1,16 @@
-FROM node:18
+FROM node:18-alpine
+
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
+
+COPY package.json ./
+
+# Install all dependencies without skipping devDependencies during build
+RUN npm install --production=false
+
 COPY . .
+
 RUN npm run build
-ENV NODE_ENV=production
+
 EXPOSE 8000
-CMD ["node", "src/server.js"]
+
+CMD ["npm", "start"]
