@@ -14,14 +14,12 @@ console.log(`Port: ${PORT}`);
 const sessionStore = new RammerheadSessionMemoryStore();
 
 const proxy = new RammerheadProxy({
-    sessionStore,
-
     bindingAddress: '0.0.0.0',
     port: PORT,
-
-    // Keep this disabled for Render's single public port
     crossDomainPort: null
 });
+
+proxy.openSessions = sessionStore;
 
 // Register the frontend files
 addStaticFilesToProxy(
@@ -32,15 +30,21 @@ addStaticFilesToProxy(
 console.log('Static frontend files registered.');
 console.log(`Rammerhead running on port ${PORT}`);
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('Received SIGTERM. Shutting down...');
-    proxy.close();
-    process.exit(0);
-});
+// Keep the process alive
+process.stdin.resume();
 
-process.on('SIGINT', () => {
-    console.log('Received SIGINT. Shutting down...');
-    proxy.close();
+// Graceful shutdown
+function shutdown(signal) {
+    console.log(`Received ${signal}. Shutting down...`);
+
+    try {
+        proxy.close();
+    } catch (error) {
+        console.error('Error while shutting down:', error);
+    }
+
     process.exit(0);
-});
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
