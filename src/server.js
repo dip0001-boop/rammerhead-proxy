@@ -9,59 +9,41 @@ const addStaticFilesToProxy = require('./util/addStaticDirToProxy');
 const PORT = Number.parseInt(process.env.PORT, 10) || 10000;
 const HOST = '0.0.0.0';
 
-console.log('[1] Starting server...');
-console.log(`[2] Port: ${PORT}`);
+console.log('Starting Rammerhead proxy server...');
+console.log(`Port: ${PORT}`);
 
-let proxy;
-let sessionStore;
+const sessionStore = new RammerheadSessionMemoryStore();
 
-try {
-    console.log('[3] Creating session store...');
-    sessionStore = new RammerheadSessionMemoryStore();
+const proxy = new RammerheadProxy({
+    bindingAddress: HOST,
+    port: PORT,
+    crossDomainPort: null
+});
 
-    console.log('[4] Creating Rammerhead proxy...');
+proxy.openSessions = sessionStore;
 
-    proxy = new RammerheadProxy({
-        bindingAddress: HOST,
-        port: PORT,
-        crossDomainPort: null
+addStaticFilesToProxy(
+    proxy,
+    path.join(__dirname, '../public')
+);
+
+proxy.GET('/healthz', (req, res) => {
+    res.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store'
     });
 
-    console.log('[5] Proxy created.');
+    res.end('ok');
+});
 
-    proxy.openSessions = sessionStore;
+console.log('Static frontend files registered.');
+console.log(`Rammerhead running on ${HOST}:${PORT}`);
 
-    console.log('[6] Registering static files...');
-
-    addStaticFilesToProxy(
-        proxy,
-        path.join(__dirname, '../public')
-    );
-
-    console.log('[7] Static frontend files registered.');
-
-    console.log('[8] Registering health route...');
-
-    proxy.GET('/healthz', (req, res) => {
-        res.writeHead(200, {
-            'Content-Type': 'text/plain; charset=utf-8',
-            'Cache-Control': 'no-store'
-        });
-
-        res.end('ok');
-    });
-
-    console.log('[9] Health route registered.');
-    console.log(`[10] Rammerhead running on ${HOST}:${PORT}`);
-
-} catch (error) {
-    console.error('================================');
-    console.error('SERVER STARTUP ERROR');
-    console.error('================================');
-    console.error(error);
-    console.error(error.stack);
-    process.exit(1);
-}
+// Keep the Node process alive.
+// The Rammerhead proxy itself manages the HTTP server.
+const keepAlive = setInterval(() => {
+    // Intentionally empty.
+}, 1000);
 
 let shuttingDown = false;
 
@@ -69,7 +51,10 @@ function shutdown(signal) {
     if (shuttingDown) return;
 
     shuttingDown = true;
+
     console.log(`${signal} received.`);
+
+    clearInterval(keepAlive);
 
     try {
         proxy.close();
@@ -77,6 +62,8 @@ function shutdown(signal) {
     } catch (error) {
         console.error('Error while closing Rammerhead:', error);
     }
+
+    process.exit(0);
 }
 
 process.once('SIGTERM', () => shutdown('SIGTERM'));
