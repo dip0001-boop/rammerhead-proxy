@@ -8,10 +8,7 @@ const RammerheadProxy = require('./classes/RammerheadProxy');
 const RammerheadSessionMemoryStore = require('./classes/RammerheadMemoryStore');
 const addStaticFilesToProxy = require('./util/addStaticDirToProxy');
 
-// Render provides the port through process.env.PORT
 const PORT = process.env.PORT || 8000;
-
-// Frontend directory
 const PUBLIC_DIR = path.join(__dirname, '../public');
 const INDEX_FILE = path.join(PUBLIC_DIR, 'index.html');
 
@@ -19,22 +16,18 @@ console.log('Starting Rammerhead proxy server...');
 console.log(`Port: ${PORT}`);
 
 try {
-    // Create the session store
     const sessionStore = new RammerheadSessionMemoryStore();
 
-    // Create the Rammerhead proxy
     const proxy = new RammerheadProxy({
         sessionStore
     });
 
-    // Add your public frontend files to Rammerhead
+    // Make all files inside /public available
     addStaticFilesToProxy(proxy, PUBLIC_DIR);
 
-    console.log('Frontend directory:', PUBLIC_DIR);
-
-    // Create HTTP server
     const server = http.createServer((req, res) => {
-        // Health checks for Render
+
+        // Render health checks
         if (req.url === '/healthz' || req.url === '/ping') {
             res.writeHead(200, {
                 'Content-Type': 'text/plain'
@@ -43,24 +36,24 @@ try {
             return res.end('OK');
         }
 
-        // Serve THE VAULT homepage
+        // Serve the THE VAULT homepage
         if (req.url === '/' || req.url === '/index.html') {
-            if (fs.existsSync(INDEX_FILE)) {
-                res.writeHead(200, {
-                    'Content-Type': 'text/html; charset=utf-8'
+            if (!fs.existsSync(INDEX_FILE)) {
+                res.writeHead(404, {
+                    'Content-Type': 'text/plain'
                 });
 
-                return res.end(fs.readFileSync(INDEX_FILE));
+                return res.end('index.html not found in public folder');
             }
 
-            res.writeHead(404, {
-                'Content-Type': 'text/plain'
+            res.writeHead(200, {
+                'Content-Type': 'text/html; charset=utf-8'
             });
 
-            return res.end('Frontend index.html not found');
+            return res.end(fs.readFileSync(INDEX_FILE));
         }
 
-        // Let Rammerhead handle proxy and static file requests
+        // Let Rammerhead serve CSS, JavaScript, images, etc.
         if (typeof proxy.onRequest === 'function') {
             const handled = proxy.onRequest(req, res);
 
@@ -75,7 +68,6 @@ try {
             }
         }
 
-        // Fallback
         res.writeHead(404, {
             'Content-Type': 'text/plain'
         });
@@ -83,7 +75,7 @@ try {
         res.end('Not Found');
     });
 
-    // Handle WebSocket connections
+    // WebSocket support for Rammerhead
     server.on('upgrade', (req, socket, head) => {
         if (typeof proxy.onUpgrade === 'function') {
             proxy.onUpgrade(req, socket, head);
@@ -94,32 +86,21 @@ try {
         }
     });
 
-    // Attach proxy if supported
     if (typeof proxy.attach === 'function') {
         proxy.attach(server);
     }
 
-    // Start server
     server.listen(PORT, '0.0.0.0', () => {
-        console.log(`Rammerhead proxy listening on 0.0.0.0:${PORT}`);
-        console.log(`THE VAULT frontend available at /`);
+        console.log(`Rammerhead proxy listening on port ${PORT}`);
+        console.log('THE VAULT frontend is active');
     });
 
-    // Graceful shutdown
     process.on('SIGTERM', () => {
-        console.log('Received SIGTERM, shutting down...');
-
-        server.close(() => {
-            process.exit(0);
-        });
+        server.close(() => process.exit(0));
     });
 
     process.on('SIGINT', () => {
-        console.log('Received SIGINT, shutting down...');
-
-        server.close(() => {
-            process.exit(0);
-        });
+        server.close(() => process.exit(0));
     });
 
 } catch (error) {
