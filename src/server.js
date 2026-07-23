@@ -1,7 +1,6 @@
 'use strict';
 
 const path = require('path');
-const http = require('http');
 
 const RammerheadProxy = require('./classes/RammerheadProxy');
 const RammerheadSessionMemoryStore = require('./classes/RammerheadMemoryStore');
@@ -21,17 +20,13 @@ const proxy = new RammerheadProxy({
     crossDomainPort: null
 });
 
-// RammerheadProxy.openSession() expects this store.
-// The constructor does not accept "sessionStore" automatically.
 proxy.openSessions = sessionStore;
 
-// Register the frontend files.
 addStaticFilesToProxy(
     proxy,
     path.join(__dirname, '../public')
 );
 
-// Add a simple health endpoint for Render.
 proxy.GET('/healthz', (req, res) => {
     res.writeHead(200, {
         'Content-Type': 'text/plain; charset=utf-8',
@@ -42,17 +37,13 @@ proxy.GET('/healthz', (req, res) => {
 });
 
 console.log('Static frontend files registered.');
-console.log(`Rammerhead running on ${HOST}:${PORT}`);
 
 let shuttingDown = false;
 
 function shutdown(signal) {
-    if (shuttingDown) {
-        return;
-    }
+    if (shuttingDown) return;
 
     shuttingDown = true;
-
     console.log(`${signal} received.`);
 
     try {
@@ -63,13 +54,8 @@ function shutdown(signal) {
     }
 }
 
-process.once('SIGTERM', () => {
-    shutdown('SIGTERM');
-});
-
-process.once('SIGINT', () => {
-    shutdown('SIGINT');
-});
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));
 
 process.on('uncaughtException', (error) => {
     console.error('UNCAUGHT EXCEPTION:', error);
