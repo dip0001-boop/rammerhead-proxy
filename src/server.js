@@ -29,10 +29,19 @@ try {
         sessionStore
     });
 
-    // Create HTTP server
+    // Create HTTP server using Rammerhead's onRequest handler
     const server = http.createServer((req, res) => {
-        proxy.handleRequest(req, res);
+        if (proxy.onRequest(req, res)) {
+            return;
+        }
+
+        // Fallback response if the proxy doesn't handle the request
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
     });
+
+    // Attach WebSocket / Upgrade event listeners
+    proxy.attach(server);
 
     server.listen(PORT, '0.0.0.0', () => {
         console.log(`Rammerhead proxy listening on 0.0.0.0:${PORT}`);
