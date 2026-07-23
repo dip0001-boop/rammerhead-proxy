@@ -7,6 +7,7 @@ const RammerheadSessionMemoryStore = require('./classes/RammerheadMemoryStore');
 const addStaticFilesToProxy = require('./util/addStaticDirToProxy');
 
 const PORT = Number(process.env.PORT || 10000);
+const HOST = '0.0.0.0';
 
 console.log('Starting Rammerhead proxy server...');
 console.log(`Port: ${PORT}`);
@@ -14,37 +15,38 @@ console.log(`Port: ${PORT}`);
 const sessionStore = new RammerheadSessionMemoryStore();
 
 const proxy = new RammerheadProxy({
-    bindingAddress: '0.0.0.0',
+    sessionStore,
+    bindingAddress: HOST,
     port: PORT,
     crossDomainPort: null
 });
 
-proxy.openSessions = sessionStore;
-
-// Register the frontend files
 addStaticFilesToProxy(
     proxy,
     path.join(__dirname, '../public')
 );
 
 console.log('Static frontend files registered.');
-console.log(`Rammerhead running on port ${PORT}`);
+console.log(`Rammerhead running on ${HOST}:${PORT}`);
 
-// Keep the process alive
-process.stdin.resume();
+let shuttingDown = false;
 
-// Graceful shutdown
 function shutdown(signal) {
-    console.log(`Received ${signal}. Shutting down...`);
+    if (shuttingDown) return;
+
+    shuttingDown = true;
+    console.log(`Received ${signal}. Shutting down gracefully...`);
 
     try {
         proxy.close();
     } catch (error) {
-        console.error('Error while shutting down:', error);
+        console.error('Error while closing proxy:', error);
     }
 
-    process.exit(0);
+    setTimeout(() => {
+        process.exit(0);
+    }, 1000).unref();
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));
