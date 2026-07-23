@@ -15,7 +15,7 @@ const addStaticFilesToProxy = require('./util/addStaticDirToProxy');
 const StrShuffler = require('./util/StrShuffler');
 const URLPath = require('./util/URLPath');
 
-// Use host-assigned PORT or default to 8000
+// Standard port setup
 const PORT = process.env.PORT || 8000;
 
 console.log('Starting Rammerhead proxy server...');
@@ -30,44 +30,62 @@ try {
         sessionStore
     });
 
+    // Log available methods on proxy for debugging
+    const proxyMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(proxy));
+    console.log('Loaded RammerheadProxy methods:', proxyMethods);
+
     // Create HTTP server
     const server = http.createServer((req, res) => {
-        // 1. Health check endpoint for host platforms (returns 200 OK)
+        // 1. Host health check endpoints (always returns 200 OK)
         if (req.url === '/healthz' || req.url === '/ping') {
             res.writeHead(200, { 'Content-Type': 'text/plain' });
             return res.end('OK');
         }
 
-        // 2. Delegate incoming requests to Rammerhead proxy handler
-        if (proxy.onRequest(req, res)) {
-            return;
+        // 2. Safe request dispatching
+        let handled = false;
+        if (typeof proxy.onRequest === 'function') {
+            handled = proxy.onRequest(req, res);
+        } else if (typeof proxy.handleRequest === 'function') {
+            handled = proxy.handleRequest(req, res);
         }
 
-        // 3. Fallback response (200 OK so root health checks pass)
+        if (handled) return;
+
+        // 3. Fallback response for root visits / health checks
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         res.end('Rammerhead Proxy Online');
     });
 
-    // Attach WebSocket and HTTP upgrade listeners to the server
-    proxy.attach(server);
+    // Handle WebSocket upgrade requests safely
+    server.on('upgrade', (req, socket, head) => {
+        if (typeof proxy.onUpgrade === 'function') {
+            proxy.onUpgrade(req, socket, head);
+        } else if (typeof proxy.handleUpgrade === 'function') {
+            proxy.handleUpgrade(req, socket, head);
+        } else {
+            socket.destroy();
+        }
+    });
+
+    // Attach server if method exists
+    if (typeof proxy.attach === 'function') {
+        proxy.attach(server);
+    }
 
     server.listen(PORT, '0.0.0.0', () => {
         console.log(`Rammerhead proxy listening on 0.0.0.0:${PORT}`);
     });
 
-    // Graceful shutdown handling
+    // Shutdown handling
     process.on('SIGTERM', () => {
         console.log('Received SIGTERM, shutting down...');
-        server.close(() => {
-            process.exit(0);
-        });
+        server.close(() => process.exit(0));
     });
 
     process.on('SIGINT', () => {
         console.log('Received SIGINT, shutting down...');
-        server.close(() => {
-            process.exit(0);
-        });
+        server.close(() => process.exit(0));
     });
 
 } catch (error) {
