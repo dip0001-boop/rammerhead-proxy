@@ -5,17 +5,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-
+```
 <title>THE VAULT</title>
 
 <link rel="stylesheet" href="style.css">
-
+```
 
 </head>
 
 <body>
 
-
+```
 <!-- LOGIN SCREEN -->
 <main id="login-screen" class="login-screen">
 
@@ -185,7 +185,7 @@
                     <button
                         type="button"
                         class="quick-link"
-                        data-url="https://google.com"
+                        data-url="https://www.google.com/"
                     >
                         GOOGLE
                     </button>
@@ -193,7 +193,7 @@
                     <button
                         type="button"
                         class="quick-link"
-                        data-url="https://youtube.com"
+                        data-url="https://www.youtube.com/"
                     >
                         YOUTUBE
                     </button>
@@ -201,7 +201,7 @@
                     <button
                         type="button"
                         class="quick-link"
-                        data-url="https://wikipedia.org"
+                        data-url="https://www.wikipedia.org/"
                     >
                         WIKIPEDIA
                     </button>
@@ -318,7 +318,7 @@
                     <input
                         type="text"
                         id="session-url"
-                        placeholder="https://example.com"
+                        placeholder="https://www.google.com/"
                         autocomplete="off"
                     >
 
@@ -355,6 +355,7 @@
                     <input
                         type="checkbox"
                         id="session-shuffling"
+                        checked
                     >
 
                     Enable session shuffling
@@ -397,11 +398,10 @@
                         <thead>
 
                             <tr>
-
                                 <th>SESSION ID</th>
+                                <th>CREATED</th>
                                 <th>STATUS</th>
                                 <th>ACTIONS</th>
-
                             </tr>
 
                         </thead>
@@ -410,7 +410,7 @@
 
                             <tr>
 
-                                <td colspan="3">
+                                <td colspan="4">
                                     Create a session to begin.
                                 </td>
 
@@ -476,8 +476,7 @@
 </main>
 
 
-<!-- LOAD AFTER THE HTML -->
-<script src="script.js?v=2"></script>
+<script src="script.js?v=3"></script>
 ```
 
 </body>
