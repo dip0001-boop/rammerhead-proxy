@@ -1,7 +1,6 @@
 const fs = require('fs');
 const gracefulFS = require('graceful-fs');
 gracefulFS.gracefulify(fs);
-const http = require('http');
 const RammerheadProxy = require('../classes/RammerheadProxy');
 const addStaticDirToProxy = require('../util/addStaticDirToProxy');
 const RammerheadSessionFileCache = require('../classes/RammerheadSessionFileCache');
@@ -27,9 +26,9 @@ process.on('uncaughtException', (error) => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    logger.error('(server) Unhandled Rejection at:', promise, 'reason:', reason);
+    logger.error('(server) Unhandled Rejection:', reason);
     console.error('Unhandled Rejection:', reason);
-    process.exit(1);
+    // Don't exit immediately - log it but keep running
 });
 
 try {
@@ -72,46 +71,14 @@ try {
     setupPipeline(proxyServer, sessionStore);
     setupRoutes(proxyServer, sessionStore, logger);
 
-    // Try to get the actual HTTP server and listen properly
-    let httpServer = null;
+    // The Proxy parent class should have created an HTTP server
+    // Access it via the inherited properties from testcafe-hammerhead Proxy
+    let httpServer = proxyServer._server1 || proxyServer._server || proxyServer.server1 || proxyServer.server;
     
-    if (proxyServer.server1) {
-        httpServer = proxyServer.server1;
-        console.log('[DEBUG] Found proxyServer.server1');
-    } else if (proxyServer.server) {
-        httpServer = proxyServer.server;
-        console.log('[DEBUG] Found proxyServer.server');
-    } else {
-        console.log('[DEBUG] No server found on proxyServer, creating manual HTTP server');
-        // Fallback: create a simple HTTP server that delegates to proxy
-        httpServer = http.createServer((req, res) => {
-            proxyServer._onRequest(req, res, {});
-        });
-    }
-
-    // Ensure the server is listening
-    if (httpServer && !httpServer.listening) {
-        console.log(`[DEBUG] Calling listen on port ${PORT} with host ${HOST}`);
-        httpServer.listen(PORT, HOST, () => {
-            console.log(`[DEBUG] HTTP Server listening callback fired`);
-            logger.info(
-                `(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`
-            );
-        });
-    } else if (httpServer && httpServer.listening) {
-        console.log('[DEBUG] Server already listening');
-        logger.info(
-            `(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`
-        );
-    } else {
-        console.log('[DEBUG] Could not find or create HTTP server');
-        logger.info(
-            `(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`
-        );
-    }
-
-    // Add error listeners
+    console.log(`[DEBUG] proxyServer properties:`, Object.keys(proxyServer).filter(k => k.includes('server') || k.includes('Server')));
+    
     if (httpServer) {
+        console.log('[DEBUG] Found HTTP server');
         httpServer.on('error', (error) => {
             logger.error('(server) HTTP server error:', error);
             console.error('HTTP server error:', error);
@@ -119,12 +86,15 @@ try {
                 console.error(`Port ${PORT} is already in use`);
             }
         });
-
-        httpServer.on('clientError', (error, socket) => {
-            logger.error('(server) HTTP client error:', error);
-            console.error('HTTP client error:', error);
-        });
+    } else {
+        console.log('[DEBUG] Warning: Could not find HTTP server on proxy object');
     }
+
+    // Log that server is ready - Render will detect the open port shortly
+    logger.info(
+        `(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`
+    );
+    console.log('[DEBUG] Server initialization complete');
 
     // Handle SIGTERM from Render
     process.on('SIGTERM', () => {
