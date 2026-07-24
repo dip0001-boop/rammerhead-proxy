@@ -111,9 +111,17 @@ class RammerheadProxy extends Proxy {
             // now, we force the server to listen to a specific port and a binding address, regardless of what
             // hammerhead server.listen(anything)
             const originalListen = http.Server.prototype.listen;
-            http.Server.prototype.listen = function (_proxyPort) {
+            http.Server.prototype.listen = function (_proxyPort, hostArg, callback) {
                 if (dontListen) return;
-                originalListen.call(this, port, bindingAddress);
+                // Handle different argument patterns for listen()
+                if (typeof hostArg === 'function') {
+                    callback = hostArg;
+                }
+                if (callback) {
+                    return originalListen.call(this, port, bindingAddress, callback);
+                } else {
+                    return originalListen.call(this, port, bindingAddress);
+                }
             };
 
             // actual proxy initialization
@@ -131,9 +139,17 @@ class RammerheadProxy extends Proxy {
             // just initialize the proxy as usual, since we don't need to do hacky stuff like the above.
             // we still need to make sure the proxy binds to the correct address though
             const originalListen = http.Server.prototype.listen;
-            http.Server.prototype.listen = function (portArg) {
+            http.Server.prototype.listen = function (portArg, hostArg, callback) {
                 if (dontListen) return;
-                originalListen.call(this, portArg, bindingAddress);
+                // Handle different argument patterns for listen()
+                if (typeof hostArg === 'function') {
+                    callback = hostArg;
+                }
+                if (callback) {
+                    return originalListen.call(this, portArg, bindingAddress, callback);
+                } else {
+                    return originalListen.call(this, portArg, bindingAddress);
+                }
             };
             super('doesntmatter', port, crossDomainPort, {
                 ssl,
