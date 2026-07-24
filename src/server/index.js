@@ -3,7 +3,6 @@ const gracefulFS = require('graceful-fs');
 
 gracefulFS.gracefulify(fs);
 
-const exitHook = require('async-exit-hook');
 const RammerheadProxy = require('../classes/RammerheadProxy');
 const addStaticDirToProxy = require('../util/addStaticDirToProxy');
 const RammerheadSessionFileCache = require('../classes/RammerheadSessionFileCache');
@@ -72,8 +71,9 @@ logger.info(
     `(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`
 );
 
-exitHook((done) => {
-    logger.info('(server) Received exit signal, closing proxy server');
+// Handle SIGTERM from Render
+process.on('SIGTERM', () => {
+    logger.info('(server) Received SIGTERM, closing proxy server');
 
     try {
         proxyServer.close();
@@ -82,8 +82,19 @@ exitHook((done) => {
     }
 
     logger.info('(server) Closed proxy server');
+    process.exit(0);
+});
 
-    if (typeof done === 'function') {
-        done();
+// Handle Ctrl+C / SIGINT
+process.on('SIGINT', () => {
+    logger.info('(server) Received SIGINT, closing proxy server');
+
+    try {
+        proxyServer.close();
+    } catch (error) {
+        logger.error(error);
     }
+
+    logger.info('(server) Closed proxy server');
+    process.exit(0);
 });
