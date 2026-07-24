@@ -1,5 +1,4 @@
 const path = require('path');
-const fs = require('fs');
 
 const PORT = Number(process.env.PORT) || 10000;
 
@@ -14,7 +13,7 @@ module.exports = {
 
     publicDir: path.join(__dirname, '../public'),
 
-    // IMPORTANT: Render should run one Rammerhead worker
+    // Render should run a single Rammerhead worker
     workers: 1,
 
     ssl: null,
@@ -85,7 +84,3 @@ module.exports = {
         ).split(',')[0].trim();
     }
 };
-
-if (fs.existsSync(path.join(__dirname, '../config.js'))) {
-    Object.assign(module.exports, require('../config'));
-}
