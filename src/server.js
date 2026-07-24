@@ -2,13 +2,13 @@ const fs = require('fs');
 const gracefulFS = require('graceful-fs');
 gracefulFS.gracefulify(fs);
 
-const RammerheadProxy = require('../classes/RammerheadProxy');
-const addStaticDirToProxy = require('../util/addStaticDirToProxy');
-const RammerheadSessionFileCache = require('../classes/RammerheadSessionFileCache');
-const config = require('../config');
-const setupRoutes = require('./setupRoutes');
-const setupPipeline = require('./setupPipeline');
-const RammerheadLogging = require('../classes/RammerheadLogging');
+const RammerheadProxy = require('./classes/RammerheadProxy');
+const addStaticDirToProxy = require('./util/addStaticDirToProxy');
+const RammerheadSessionFileCache = require('./classes/RammerheadSessionFileCache');
+const config = require('./config');
+const setupRoutes = require('./server/setupRoutes');
+const setupPipeline = require('./server/setupPipeline');
+const RammerheadLogging = require('./classes/RammerheadLogging');
 
 const PORT = Number(process.env.PORT) || Number(config.port) || 10000;
 const HOST = '0.0.0.0';
