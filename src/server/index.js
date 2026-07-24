@@ -77,12 +77,14 @@ try {
 
     // Attach the proxy request handler to our HTTP server
     httpServer.on('request', (req, res) => {
-        proxyServer._onRequest(req, res, {});
+        const serverInfo = proxyServer.getServerInfo(req);
+        proxyServer._onRequest(req, res, serverInfo);
     });
 
     // Handle upgrade requests (WebSocket)
     httpServer.on('upgrade', (req, socket, head) => {
-        proxyServer._onUpgradeRequest(req, socket, head, {});
+        const serverInfo = proxyServer.getServerInfo(req);
+        proxyServer._onUpgradeRequest(req, socket, head, serverInfo);
     });
 
     // Add error handling
