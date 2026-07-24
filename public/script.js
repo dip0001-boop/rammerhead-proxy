@@ -1,16 +1,6 @@
 'use strict';
 
-/* =========================================================
-THE VAULT — FRONTEND CONTROLLER
-Backend-compatible with Rammerhead
-========================================================= */
-
-/* -----------------------------
-PASSWORD SYSTEM
------------------------------ */
-
 const password = 'bannana13!';
-
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_TIME = 60 * 60 * 1000;
 
@@ -21,26 +11,22 @@ const errorText = $('error-text');
 function showError(message) {
 if (!errorText) return;
 
-```
+
 errorText.textContent = message;
 errorText.style.display = 'block';
-```
+
 
 }
 
 function clearError() {
 if (!errorText) return;
 
-```
+
 errorText.textContent = '';
 errorText.style.display = 'none';
-```
+
 
 }
-
-/* -----------------------------
-LOGIN SYSTEM
------------------------------ */
 
 function getLoginAttempts() {
 return Number(localStorage.getItem('vault-login-attempts') || 0);
@@ -57,7 +43,7 @@ return Number(localStorage.getItem('vault-lockout-time') || 0);
 function isLockedOut() {
 const lockoutTime = getLockoutTime();
 
-```
+
 if (!lockoutTime) return false;
 
 if (Date.now() < lockoutTime) {
@@ -68,18 +54,18 @@ localStorage.removeItem('vault-lockout-time');
 setLoginAttempts(0);
 
 return false;
-```
+
 
 }
 
 function getRemainingLockoutTime() {
 const remaining = getLockoutTime() - Date.now();
 
-```
+
 if (remaining <= 0) return 0;
 
 return Math.ceil(remaining / 60000);
-```
+
 
 }
 
@@ -90,7 +76,7 @@ return sessionStorage.getItem('vault-authenticated') === 'true';
 function login() {
 const input = $('password-input');
 
-```
+
 if (!input) {
     console.error('Password input not found.');
     return;
@@ -113,15 +99,13 @@ if (enteredPassword === password) {
     setLoginAttempts(0);
     localStorage.removeItem('vault-lockout-time');
 
-    showDashboard();
-
     input.value = '';
+    showDashboard();
 
     return;
 }
 
 const attempts = getLoginAttempts() + 1;
-
 setLoginAttempts(attempts);
 
 if (attempts >= MAX_ATTEMPTS) {
@@ -130,10 +114,11 @@ if (attempts >= MAX_ATTEMPTS) {
         String(Date.now() + LOCKOUT_TIME)
     );
 
-    showError('TOO MANY INCORRECT ATTEMPTS. ACCESS LOCKED FOR 1 HOUR.');
+    showError(
+        'TOO MANY INCORRECT ATTEMPTS. ACCESS LOCKED FOR 1 HOUR.'
+    );
 
     input.value = '';
-
     return;
 }
 
@@ -144,7 +129,7 @@ showError(
 );
 
 input.value = '';
-```
+
 
 }
 
@@ -152,7 +137,7 @@ function showLogin() {
 const loginScreen = $('login-screen');
 const app = $('app');
 
-```
+
 if (loginScreen) {
     loginScreen.style.display = 'flex';
 }
@@ -160,7 +145,7 @@ if (loginScreen) {
 if (app) {
     app.style.display = 'none';
 }
-```
+
 
 }
 
@@ -168,7 +153,7 @@ function showDashboard() {
 const loginScreen = $('login-screen');
 const app = $('app');
 
-```
+
 if (loginScreen) {
     loginScreen.style.display = 'none';
 }
@@ -176,7 +161,6 @@ if (loginScreen) {
 if (app) {
     app.style.display = 'block';
 }
-```
 
 }
 
@@ -184,7 +168,7 @@ function checkAuthentication() {
 if (isLockedOut()) {
 showLogin();
 
-```
+
     showError(
         `TOO MANY INCORRECT ATTEMPTS. TRY AGAIN IN ${getRemainingLockoutTime()} MINUTES.`
     );
@@ -197,18 +181,13 @@ if (isLoggedIn()) {
 } else {
     showLogin();
 }
-```
+
 
 }
-
-/* -----------------------------
-URL HELPERS
------------------------------ */
 
 function normalizeUrl(value) {
 value = String(value || '').trim();
 
-```
 if (!value) return '';
 
 if (!/^https?:\/\//i.test(value)) {
@@ -220,7 +199,7 @@ try {
 } catch {
     return '';
 }
-```
+
 
 }
 
@@ -239,25 +218,21 @@ return normalizeUrl($('session-url')?.value);
 function buildProxyUrl(url) {
 const sessionId = getSessionId();
 
-```
+
 if (!sessionId) {
     showError('CREATE A SESSION FIRST.');
     return null;
 }
 
 return `/session/${encodeURIComponent(sessionId)}/${encodeURIComponent(url)}`;
-```
+
 
 }
-
-/* -----------------------------
-RAMMERHEAD SESSION API
------------------------------ */
 
 async function createSession() {
 clearError();
 
-```
+
 try {
     const response = await fetch(
         `/newsession?pwd=${encodeURIComponent(getPassword())}`
@@ -278,9 +253,7 @@ try {
     await editSession(id);
 
     loadSessions();
-
     showBrowser();
-
 } catch (error) {
     console.error(error);
 
@@ -288,17 +261,14 @@ try {
         'UNABLE TO CREATE SESSION. CHECK THE RAMMERHEAD SERVER.'
     );
 }
-```
+
 
 }
 
 async function editSession(id) {
-const shuffling =
-$('session-shuffling')?.checked ? '1' : '0';
+const shuffling = $('session-shuffling')?.checked ? '1' : '0';
+const httpProxy = $('session-httpproxy')?.value?.trim() || '';
 
-```
-const httpProxy =
-    $('session-httpproxy')?.value?.trim() || '';
 
 const params = new URLSearchParams({
     id,
@@ -317,14 +287,14 @@ const response = await fetch(
 if (!response.ok) {
     throw new Error('Could not configure session.');
 }
-```
+
 
 }
 
 function openDestination(rawUrl) {
 clearError();
 
-```
+
 const url = normalizeUrl(rawUrl);
 
 if (!url) {
@@ -342,18 +312,20 @@ const proxyUrl = buildProxyUrl(url);
 if (proxyUrl) {
     window.location.href = proxyUrl;
 }
-```
+
 
 }
 
-/* -----------------------------
-SESSION TABLE
------------------------------ */
+function escapeHtml(value) {
+const div = document.createElement('div');
+div.textContent = String(value);
+return div.innerHTML;
+}
 
 function loadSessions() {
 const tableBody = $('session-table-body');
 
-```
+
 if (!tableBody) return;
 
 const id = getSessionId();
@@ -401,64 +373,47 @@ tableBody.innerHTML = `
         </td>
     </tr>
 `;
-```
+
 
 }
 
 async function deleteSession(id) {
 try {
-await fetch(
+const response = await fetch(
 `/deletesession?id=${encodeURIComponent(id)}&pwd=${encodeURIComponent(getPassword())}`
 );
 
-```
+
+    if (!response.ok) {
+        throw new Error('Session deletion failed.');
+    }
+
     if ($('session-id')?.value === id) {
         $('session-id').value = '';
     }
 
     loadSessions();
-
 } catch (error) {
     console.error(
         'Could not delete session:',
         error
     );
 }
-```
+
 
 }
 
-function escapeHtml(value) {
-return String(value)
-.replaceAll('&', '&')
-.replaceAll('<', '<')
-.replaceAll('>', '>')
-.replaceAll('"', '"')
-.replaceAll("'", ''');
-}
-
-/* -----------------------------
-UI SECTIONS
------------------------------ */
-
-const dashboard =
-document.querySelector('.vault-dashboard');
-
-const browserSection =
-$('browser-section');
-
-const gamesSection =
-$('games-section');
-
-const gatewaySection =
-$('gateway-section');
+const dashboard = document.querySelector('.vault-dashboard');
+const browserSection = $('browser-section');
+const gamesSection = $('games-section');
+const gatewaySection = $('gateway-section');
 
 function hideSections() {
 if (dashboard) {
 dashboard.style.display = 'none';
 }
 
-```
+
 if (browserSection) {
     browserSection.style.display = 'none';
 }
@@ -470,7 +425,7 @@ if (gamesSection) {
 if (gatewaySection) {
     gatewaySection.style.display = 'none';
 }
-```
+
 
 }
 
@@ -481,67 +436,63 @@ document
 button.classList.remove('active');
 });
 
-```
+
 $(id)?.classList.add('active');
-```
+
 
 }
 
 function showHome() {
 hideSections();
 
-```
+
 if (dashboard) {
     dashboard.style.display = 'block';
 }
 
 setActiveNav('nav-home');
-```
+
 
 }
 
 function showBrowser() {
 hideSections();
 
-```
+
 if (browserSection) {
     browserSection.style.display = 'block';
 }
 
 setActiveNav('nav-browser');
-```
+
 
 }
 
 function showGames() {
 hideSections();
 
-```
+
 if (gamesSection) {
     gamesSection.style.display = 'block';
 }
 
 setActiveNav('nav-games');
-```
+
 
 }
 
 function showGateway() {
 hideSections();
 
-```
+
 if (gatewaySection) {
     gatewaySection.style.display = 'block';
 }
 
 setActiveNav('nav-gateway');
-```
+
 
 }
-
-/* -----------------------------
-GAMES
------------------------------ */
 
 const games = [
 {
@@ -549,45 +500,37 @@ name: 'SHELL SHOCKERS',
 url: 'https://shellshock.io/',
 description: 'MULTIPLAYER EGG SHOOTER'
 },
-
-```
 {
-    name: 'KRUNKER',
-    url: 'https://krunker.io/',
-    description: 'FAST BROWSER FPS'
+name: 'KRUNKER',
+url: 'https://krunker.io/',
+description: 'FAST BROWSER FPS'
 },
-
 {
-    name: 'AGAR.IO',
-    url: 'https://agar.io/',
-    description: 'GROW AND COMPETE'
+name: 'AGAR.IO',
+url: 'https://agar.io/',
+description: 'GROW AND COMPETE'
 },
-
 {
-    name: 'SLITHER.IO',
-    url: 'https://slither.io/',
-    description: 'CLASSIC MULTIPLAYER SNAKE'
+name: 'SLITHER.IO',
+url: 'https://slither.io/',
+description: 'CLASSIC MULTIPLAYER SNAKE'
 },
-
 {
-    name: '2048',
-    url: 'https://play2048.co/',
-    description: 'PUZZLE GAME'
+name: '2048',
+url: 'https://play2048.co/',
+description: 'PUZZLE GAME'
 },
-
 {
-    name: 'TETRIS',
-    url: 'https://tetris.com/play-tetris',
-    description: 'CLASSIC BLOCK PUZZLE'
+name: 'TETRIS',
+url: 'https://tetris.com/play-tetris',
+description: 'CLASSIC BLOCK PUZZLE'
 }
-```
-
 ];
 
 function renderGames() {
 const grid = $('games-grid');
 
-```
+
 if (!grid) return;
 
 grid.innerHTML = '';
@@ -596,40 +539,28 @@ games.forEach((game) => {
     const card = document.createElement('button');
 
     card.type = 'button';
-
     card.className = 'game-card';
 
-    card.innerHTML = `
-        <strong>
-            ${escapeHtml(game.name)}
-        </strong>
+    const title = document.createElement('strong');
+    title.textContent = game.name;
 
-        <small>
-            ${escapeHtml(game.description)}
-        </small>
-    `;
+    const description = document.createElement('small');
+    description.textContent = game.description;
 
-    card.addEventListener(
-        'click',
-        () => {
-            openDestination(game.url);
-        }
-    );
+    card.appendChild(title);
+    card.appendChild(description);
+
+    card.addEventListener('click', () => {
+        openDestination(game.url);
+    });
 
     grid.appendChild(card);
 });
-```
+
 
 }
 
-/* -----------------------------
-EVENTS
------------------------------ */
-
-$('login-btn')?.addEventListener(
-'click',
-login
-);
+$('login-btn')?.addEventListener('click', login);
 
 $('password-input')?.addEventListener(
 'keydown',
@@ -648,27 +579,21 @@ createSession
 $('session-go')?.addEventListener(
 'click',
 () => {
-openDestination(
-getSessionUrl()
-);
+openDestination(getSessionUrl());
 }
 );
 
 $('dashboard-go')?.addEventListener(
 'click',
 () => {
-openDestination(
-$('dashboard-url')?.value
-);
+openDestination($('dashboard-url')?.value);
 }
 );
 
 $('browser-go')?.addEventListener(
 'click',
 () => {
-openDestination(
-$('browser-url')?.value
-);
+openDestination($('browser-url')?.value);
 }
 );
 
@@ -676,9 +601,7 @@ $('dashboard-url')?.addEventListener(
 'keydown',
 (event) => {
 if (event.key === 'Enter') {
-openDestination(
-event.target.value
-);
+openDestination(event.target.value);
 }
 }
 );
@@ -687,9 +610,7 @@ $('browser-url')?.addEventListener(
 'keydown',
 (event) => {
 if (event.key === 'Enter') {
-openDestination(
-event.target.value
-);
+openDestination(event.target.value);
 }
 }
 );
@@ -735,9 +656,7 @@ document
 button.addEventListener(
 'click',
 () => {
-openDestination(
-button.dataset.url
-);
+openDestination(button.dataset.url);
 }
 );
 });
@@ -745,16 +664,14 @@ button.dataset.url
 $('session-table-body')?.addEventListener(
 'click',
 (event) => {
-const openButton =
-event.target.closest(
+const openButton = event.target.closest(
 '[data-open-session]'
 );
 
-```
-    const deleteButton =
-        event.target.closest(
-            '[data-delete-session]'
-        );
+
+    const deleteButton = event.target.closest(
+        '[data-delete-session]'
+    );
 
     if (openButton) {
         $('session-id').value =
@@ -769,7 +686,7 @@ event.target.closest(
         );
     }
 }
-```
+
 
 );
 
@@ -779,7 +696,7 @@ $('session-advanced-toggle')?.addEventListener(
 const container =
 $('session-advanced-container');
 
-```
+
     const button =
         $('session-advanced-toggle');
 
@@ -798,18 +715,11 @@ $('session-advanced-container');
             ? '- HIDE ADVANCED OPTIONS'
             : '+ SHOW ADVANCED OPTIONS';
 }
-```
+
 
 );
 
-/* -----------------------------
-START
------------------------------ */
-
 checkAuthentication();
-
 renderGames();
-
 loadSessions();
-
 showHome();
