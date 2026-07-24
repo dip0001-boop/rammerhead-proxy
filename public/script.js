@@ -1,15 +1,15 @@
 'use strict';
 
 /* =========================================================
-   THE VAULT — FRONTEND CONTROLLER
-   Backend-compatible with Rammerhead
+THE VAULT — FRONTEND CONTROLLER
+Backend-compatible with Rammerhead
 ========================================================= */
 
 /* -----------------------------
-   PASSWORD SYSTEM
+PASSWORD SYSTEM
 ----------------------------- */
 
-const password = 'banana13!';
+const password = 'bannana13!';
 
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_TIME = 60 * 60 * 1000;
@@ -19,716 +19,791 @@ const $ = (id) => document.getElementById(id);
 const errorText = $('error-text');
 
 function showError(message) {
-    if (!errorText) return;
+if (!errorText) return;
 
-    errorText.textContent = message;
-    errorText.style.display = 'block';
+```
+errorText.textContent = message;
+errorText.style.display = 'block';
+```
+
 }
 
 function clearError() {
-    if (!errorText) return;
+if (!errorText) return;
 
-    errorText.textContent = '';
-    errorText.style.display = 'none';
+```
+errorText.textContent = '';
+errorText.style.display = 'none';
+```
+
 }
 
 /* -----------------------------
-   LOGIN SYSTEM
+LOGIN SYSTEM
 ----------------------------- */
 
 function getLoginAttempts() {
-    return Number(localStorage.getItem('vault-login-attempts') || 0);
+return Number(localStorage.getItem('vault-login-attempts') || 0);
 }
 
 function setLoginAttempts(attempts) {
-    localStorage.setItem('vault-login-attempts', String(attempts));
+localStorage.setItem('vault-login-attempts', String(attempts));
 }
 
 function getLockoutTime() {
-    return Number(localStorage.getItem('vault-lockout-time') || 0);
+return Number(localStorage.getItem('vault-lockout-time') || 0);
 }
 
 function isLockedOut() {
-    const lockoutTime = getLockoutTime();
+const lockoutTime = getLockoutTime();
 
-    if (!lockoutTime) return false;
+```
+if (!lockoutTime) return false;
 
-    if (Date.now() < lockoutTime) {
-        return true;
-    }
+if (Date.now() < lockoutTime) {
+    return true;
+}
 
-    localStorage.removeItem('vault-lockout-time');
-    setLoginAttempts(0);
+localStorage.removeItem('vault-lockout-time');
+setLoginAttempts(0);
 
-    return false;
+return false;
+```
+
 }
 
 function getRemainingLockoutTime() {
-    const remaining = getLockoutTime() - Date.now();
+const remaining = getLockoutTime() - Date.now();
 
-    if (remaining <= 0) return 0;
+```
+if (remaining <= 0) return 0;
 
-    return Math.ceil(remaining / 60000);
+return Math.ceil(remaining / 60000);
+```
+
 }
 
 function isLoggedIn() {
-    return sessionStorage.getItem('vault-authenticated') === 'true';
+return sessionStorage.getItem('vault-authenticated') === 'true';
 }
 
 function login() {
-    const input = $('password-input');
+const input = $('password-input');
 
-    if (!input) {
-        console.error('Password input not found.');
-        return;
-    }
+```
+if (!input) {
+    console.error('Password input not found.');
+    return;
+}
 
-    clearError();
+clearError();
 
-    if (isLockedOut()) {
-        showError(
-            `ACCESS LOCKED. TRY AGAIN IN ${getRemainingLockoutTime()} MINUTES.`
-        );
-        return;
-    }
-
-    const enteredPassword = input.value;
-
-    if (enteredPassword === password) {
-        sessionStorage.setItem('vault-authenticated', 'true');
-
-        setLoginAttempts(0);
-        localStorage.removeItem('vault-lockout-time');
-
-        showDashboard();
-
-        input.value = '';
-
-        return;
-    }
-
-    const attempts = getLoginAttempts() + 1;
-
-    setLoginAttempts(attempts);
-
-    if (attempts >= MAX_ATTEMPTS) {
-        localStorage.setItem(
-            'vault-lockout-time',
-            String(Date.now() + LOCKOUT_TIME)
-        );
-
-        showError('TOO MANY INCORRECT ATTEMPTS. ACCESS LOCKED FOR 1 HOUR.');
-
-        input.value = '';
-
-        return;
-    }
-
-    const attemptsRemaining = MAX_ATTEMPTS - attempts;
-
+if (isLockedOut()) {
     showError(
-        `INCORRECT PASSWORD. ${attemptsRemaining} ATTEMPT(S) REMAINING.`
+        `ACCESS LOCKED. TRY AGAIN IN ${getRemainingLockoutTime()} MINUTES.`
     );
+    return;
+}
+
+const enteredPassword = input.value;
+
+if (enteredPassword === password) {
+    sessionStorage.setItem('vault-authenticated', 'true');
+
+    setLoginAttempts(0);
+    localStorage.removeItem('vault-lockout-time');
+
+    showDashboard();
 
     input.value = '';
+
+    return;
+}
+
+const attempts = getLoginAttempts() + 1;
+
+setLoginAttempts(attempts);
+
+if (attempts >= MAX_ATTEMPTS) {
+    localStorage.setItem(
+        'vault-lockout-time',
+        String(Date.now() + LOCKOUT_TIME)
+    );
+
+    showError('TOO MANY INCORRECT ATTEMPTS. ACCESS LOCKED FOR 1 HOUR.');
+
+    input.value = '';
+
+    return;
+}
+
+const attemptsRemaining = MAX_ATTEMPTS - attempts;
+
+showError(
+    `INCORRECT PASSWORD. ${attemptsRemaining} ATTEMPT(S) REMAINING.`
+);
+
+input.value = '';
+```
+
 }
 
 function showLogin() {
-    const loginScreen = $('login-screen');
-    const app = $('app');
+const loginScreen = $('login-screen');
+const app = $('app');
 
-    if (loginScreen) {
-        loginScreen.style.display = 'flex';
-    }
+```
+if (loginScreen) {
+    loginScreen.style.display = 'flex';
+}
 
-    if (app) {
-        app.style.display = 'none';
-    }
+if (app) {
+    app.style.display = 'none';
+}
+```
+
 }
 
 function showDashboard() {
-    const loginScreen = $('login-screen');
-    const app = $('app');
+const loginScreen = $('login-screen');
+const app = $('app');
 
-    if (loginScreen) {
-        loginScreen.style.display = 'none';
-    }
+```
+if (loginScreen) {
+    loginScreen.style.display = 'none';
+}
 
-    if (app) {
-        app.style.display = 'block';
-    }
+if (app) {
+    app.style.display = 'block';
+}
+```
+
 }
 
 function checkAuthentication() {
-    if (isLockedOut()) {
-        showLogin();
+if (isLockedOut()) {
+showLogin();
 
-        showError(
-            `TOO MANY INCORRECT ATTEMPTS. TRY AGAIN IN ${getRemainingLockoutTime()} MINUTES.`
-        );
+```
+    showError(
+        `TOO MANY INCORRECT ATTEMPTS. TRY AGAIN IN ${getRemainingLockoutTime()} MINUTES.`
+    );
 
-        return;
-    }
+    return;
+}
 
-    if (isLoggedIn()) {
-        showDashboard();
-    } else {
-        showLogin();
-    }
+if (isLoggedIn()) {
+    showDashboard();
+} else {
+    showLogin();
+}
+```
+
 }
 
 /* -----------------------------
-   URL HELPERS
+URL HELPERS
 ----------------------------- */
 
 function normalizeUrl(value) {
-    value = String(value || '').trim();
+value = String(value || '').trim();
 
-    if (!value) return '';
+```
+if (!value) return '';
 
-    if (!/^https?:\/\//i.test(value)) {
-        value = 'https://' + value;
-    }
+if (!/^https?:\/\//i.test(value)) {
+    value = 'https://' + value;
+}
 
-    try {
-        return new URL(value).toString();
-    } catch {
-        return '';
-    }
+try {
+    return new URL(value).toString();
+} catch {
+    return '';
+}
+```
+
 }
 
 function getSessionId() {
-    return $('session-id')?.value?.trim() || '';
+return $('session-id')?.value?.trim() || '';
 }
 
 function getPassword() {
-    return password;
+return password;
 }
 
 function getSessionUrl() {
-    return normalizeUrl($('session-url')?.value);
+return normalizeUrl($('session-url')?.value);
 }
 
 function buildProxyUrl(url) {
-    const sessionId = getSessionId();
+const sessionId = getSessionId();
 
-    if (!sessionId) {
-        showError('CREATE A SESSION FIRST.');
-        return null;
-    }
+```
+if (!sessionId) {
+    showError('CREATE A SESSION FIRST.');
+    return null;
+}
 
-    return `/session/${encodeURIComponent(sessionId)}/${encodeURIComponent(url)}`;
+return `/session/${encodeURIComponent(sessionId)}/${encodeURIComponent(url)}`;
+```
+
 }
 
 /* -----------------------------
-   RAMMERHEAD SESSION API
+RAMMERHEAD SESSION API
 ----------------------------- */
 
 async function createSession() {
-    clearError();
+clearError();
 
-    try {
-        const response = await fetch(
-            `/newsession?pwd=${encodeURIComponent(getPassword())}`
-        );
-
-        if (!response.ok) {
-            throw new Error('Session creation failed.');
-        }
-
-        const id = (await response.text()).trim();
-
-        if (!id) {
-            throw new Error('No session ID returned.');
-        }
-
-        $('session-id').value = id;
-
-        await editSession(id);
-
-        loadSessions();
-
-        showBrowser();
-
-    } catch (error) {
-        console.error(error);
-
-        showError(
-            'UNABLE TO CREATE SESSION. CHECK THE RAMMERHEAD SERVER.'
-        );
-    }
-}
-
-async function editSession(id) {
-    const shuffling =
-        $('session-shuffling')?.checked ? '1' : '0';
-
-    const httpProxy =
-        $('session-httpproxy')?.value?.trim() || '';
-
-    const params = new URLSearchParams({
-        id,
-        pwd: getPassword(),
-        enableShuffling: shuffling
-    });
-
-    if (httpProxy) {
-        params.set('httpProxy', httpProxy);
-    }
-
+```
+try {
     const response = await fetch(
-        `/editsession?${params.toString()}`
+        `/newsession?pwd=${encodeURIComponent(getPassword())}`
     );
 
     if (!response.ok) {
-        throw new Error('Could not configure session.');
+        throw new Error('Session creation failed.');
     }
+
+    const id = (await response.text()).trim();
+
+    if (!id) {
+        throw new Error('No session ID returned.');
+    }
+
+    $('session-id').value = id;
+
+    await editSession(id);
+
+    loadSessions();
+
+    showBrowser();
+
+} catch (error) {
+    console.error(error);
+
+    showError(
+        'UNABLE TO CREATE SESSION. CHECK THE RAMMERHEAD SERVER.'
+    );
+}
+```
+
+}
+
+async function editSession(id) {
+const shuffling =
+$('session-shuffling')?.checked ? '1' : '0';
+
+```
+const httpProxy =
+    $('session-httpproxy')?.value?.trim() || '';
+
+const params = new URLSearchParams({
+    id,
+    pwd: getPassword(),
+    enableShuffling: shuffling
+});
+
+if (httpProxy) {
+    params.set('httpProxy', httpProxy);
+}
+
+const response = await fetch(
+    `/editsession?${params.toString()}`
+);
+
+if (!response.ok) {
+    throw new Error('Could not configure session.');
+}
+```
+
 }
 
 function openDestination(rawUrl) {
-    clearError();
+clearError();
 
-    const url = normalizeUrl(rawUrl);
+```
+const url = normalizeUrl(rawUrl);
 
-    if (!url) {
-        showError('ENTER A VALID DESTINATION URL.');
-        return;
-    }
+if (!url) {
+    showError('ENTER A VALID DESTINATION URL.');
+    return;
+}
 
-    if (!getSessionId()) {
-        showError('CREATE A SESSION BEFORE OPENING A DESTINATION.');
-        return;
-    }
+if (!getSessionId()) {
+    showError('CREATE A SESSION BEFORE OPENING A DESTINATION.');
+    return;
+}
 
-    const proxyUrl = buildProxyUrl(url);
+const proxyUrl = buildProxyUrl(url);
 
-    if (proxyUrl) {
-        window.location.href = proxyUrl;
-    }
+if (proxyUrl) {
+    window.location.href = proxyUrl;
+}
+```
+
 }
 
 /* -----------------------------
-   SESSION TABLE
+SESSION TABLE
 ----------------------------- */
 
 function loadSessions() {
-    const tableBody = $('session-table-body');
+const tableBody = $('session-table-body');
 
-    if (!tableBody) return;
+```
+if (!tableBody) return;
 
-    const id = getSessionId();
+const id = getSessionId();
 
-    if (!id) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="3">
-                    NO ACTIVE SESSION
-                </td>
-            </tr>
-        `;
-
-        return;
-    }
-
+if (!id) {
     tableBody.innerHTML = `
         <tr>
-            <td>${escapeHtml(id)}</td>
-
-            <td>
-                <span class="session-status">
-                    ● ACTIVE
-                </span>
-            </td>
-
-            <td>
-                <div class="session-action">
-
-                    <button
-                        type="button"
-                        data-open-session="${escapeHtml(id)}"
-                    >
-                        OPEN
-                    </button>
-
-                    <button
-                        type="button"
-                        data-delete-session="${escapeHtml(id)}"
-                    >
-                        DELETE
-                    </button>
-
-                </div>
+            <td colspan="3">
+                NO ACTIVE SESSION
             </td>
         </tr>
     `;
+
+    return;
+}
+
+tableBody.innerHTML = `
+    <tr>
+        <td>${escapeHtml(id)}</td>
+
+        <td>
+            <span class="session-status">
+                ● ACTIVE
+            </span>
+        </td>
+
+        <td>
+            <div class="session-action">
+
+                <button
+                    type="button"
+                    data-open-session="${escapeHtml(id)}"
+                >
+                    OPEN
+                </button>
+
+                <button
+                    type="button"
+                    data-delete-session="${escapeHtml(id)}"
+                >
+                    DELETE
+                </button>
+
+            </div>
+        </td>
+    </tr>
+`;
+```
+
 }
 
 async function deleteSession(id) {
-    try {
-        await fetch(
-            `/deletesession?id=${encodeURIComponent(id)}&pwd=${encodeURIComponent(getPassword())}`
-        );
+try {
+await fetch(
+`/deletesession?id=${encodeURIComponent(id)}&pwd=${encodeURIComponent(getPassword())}`
+);
 
-        if ($('session-id')?.value === id) {
-            $('session-id').value = '';
-        }
-
-        loadSessions();
-
-    } catch (error) {
-        console.error(
-            'Could not delete session:',
-            error
-        );
+```
+    if ($('session-id')?.value === id) {
+        $('session-id').value = '';
     }
+
+    loadSessions();
+
+} catch (error) {
+    console.error(
+        'Could not delete session:',
+        error
+    );
+}
+```
+
 }
 
 function escapeHtml(value) {
-    return String(value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
+return String(value)
+.replaceAll('&', '&')
+.replaceAll('<', '<')
+.replaceAll('>', '>')
+.replaceAll('"', '"')
+.replaceAll("'", ''');
 }
 
 /* -----------------------------
-   UI SECTIONS
+UI SECTIONS
 ----------------------------- */
 
 const dashboard =
-    document.querySelector('.vault-dashboard');
+document.querySelector('.vault-dashboard');
 
 const browserSection =
-    $('browser-section');
+$('browser-section');
 
 const gamesSection =
-    $('games-section');
+$('games-section');
 
 const gatewaySection =
-    $('gateway-section');
+$('gateway-section');
 
 function hideSections() {
-    if (dashboard) {
-        dashboard.style.display = 'none';
-    }
+if (dashboard) {
+dashboard.style.display = 'none';
+}
 
-    if (browserSection) {
-        browserSection.style.display = 'none';
-    }
+```
+if (browserSection) {
+    browserSection.style.display = 'none';
+}
 
-    if (gamesSection) {
-        gamesSection.style.display = 'none';
-    }
+if (gamesSection) {
+    gamesSection.style.display = 'none';
+}
 
-    if (gatewaySection) {
-        gatewaySection.style.display = 'none';
-    }
+if (gatewaySection) {
+    gatewaySection.style.display = 'none';
+}
+```
+
 }
 
 function setActiveNav(id) {
-    document
-        .querySelectorAll('.bottom-nav-item')
-        .forEach((button) => {
-            button.classList.remove('active');
-        });
+document
+.querySelectorAll('.bottom-nav-item')
+.forEach((button) => {
+button.classList.remove('active');
+});
 
-    $(id)?.classList.add('active');
+```
+$(id)?.classList.add('active');
+```
+
 }
 
 function showHome() {
-    hideSections();
+hideSections();
 
-    if (dashboard) {
-        dashboard.style.display = 'block';
-    }
+```
+if (dashboard) {
+    dashboard.style.display = 'block';
+}
 
-    setActiveNav('nav-home');
+setActiveNav('nav-home');
+```
+
 }
 
 function showBrowser() {
-    hideSections();
+hideSections();
 
-    if (browserSection) {
-        browserSection.style.display = 'block';
-    }
+```
+if (browserSection) {
+    browserSection.style.display = 'block';
+}
 
-    setActiveNav('nav-browser');
+setActiveNav('nav-browser');
+```
+
 }
 
 function showGames() {
-    hideSections();
+hideSections();
 
-    if (gamesSection) {
-        gamesSection.style.display = 'block';
-    }
+```
+if (gamesSection) {
+    gamesSection.style.display = 'block';
+}
 
-    setActiveNav('nav-games');
+setActiveNav('nav-games');
+```
+
 }
 
 function showGateway() {
-    hideSections();
+hideSections();
 
-    if (gatewaySection) {
-        gatewaySection.style.display = 'block';
-    }
+```
+if (gatewaySection) {
+    gatewaySection.style.display = 'block';
+}
 
-    setActiveNav('nav-gateway');
+setActiveNav('nav-gateway');
+```
+
 }
 
 /* -----------------------------
-   GAMES
+GAMES
 ----------------------------- */
 
 const games = [
-    {
-        name: 'SHELL SHOCKERS',
-        url: 'https://shellshock.io/',
-        description: 'MULTIPLAYER EGG SHOOTER'
-    },
+{
+name: 'SHELL SHOCKERS',
+url: 'https://shellshock.io/',
+description: 'MULTIPLAYER EGG SHOOTER'
+},
 
-    {
-        name: 'KRUNKER',
-        url: 'https://krunker.io/',
-        description: 'FAST BROWSER FPS'
-    },
+```
+{
+    name: 'KRUNKER',
+    url: 'https://krunker.io/',
+    description: 'FAST BROWSER FPS'
+},
 
-    {
-        name: 'AGAR.IO',
-        url: 'https://agar.io/',
-        description: 'GROW AND COMPETE'
-    },
+{
+    name: 'AGAR.IO',
+    url: 'https://agar.io/',
+    description: 'GROW AND COMPETE'
+},
 
-    {
-        name: 'SLITHER.IO',
-        url: 'https://slither.io/',
-        description: 'CLASSIC MULTIPLAYER SNAKE'
-    },
+{
+    name: 'SLITHER.IO',
+    url: 'https://slither.io/',
+    description: 'CLASSIC MULTIPLAYER SNAKE'
+},
 
-    {
-        name: '2048',
-        url: 'https://play2048.co/',
-        description: 'PUZZLE GAME'
-    },
+{
+    name: '2048',
+    url: 'https://play2048.co/',
+    description: 'PUZZLE GAME'
+},
 
-    {
-        name: 'TETRIS',
-        url: 'https://tetris.com/play-tetris',
-        description: 'CLASSIC BLOCK PUZZLE'
-    }
+{
+    name: 'TETRIS',
+    url: 'https://tetris.com/play-tetris',
+    description: 'CLASSIC BLOCK PUZZLE'
+}
+```
+
 ];
 
 function renderGames() {
-    const grid = $('games-grid');
+const grid = $('games-grid');
 
-    if (!grid) return;
+```
+if (!grid) return;
 
-    grid.innerHTML = '';
+grid.innerHTML = '';
 
-    games.forEach((game) => {
-        const card = document.createElement('button');
+games.forEach((game) => {
+    const card = document.createElement('button');
 
-        card.type = 'button';
+    card.type = 'button';
 
-        card.className = 'game-card';
+    card.className = 'game-card';
 
-        card.innerHTML = `
-            <strong>
-                ${escapeHtml(game.name)}
-            </strong>
+    card.innerHTML = `
+        <strong>
+            ${escapeHtml(game.name)}
+        </strong>
 
-            <small>
-                ${escapeHtml(game.description)}
-            </small>
-        `;
+        <small>
+            ${escapeHtml(game.description)}
+        </small>
+    `;
 
-        card.addEventListener(
-            'click',
-            () => {
-                openDestination(game.url);
-            }
-        );
+    card.addEventListener(
+        'click',
+        () => {
+            openDestination(game.url);
+        }
+    );
 
-        grid.appendChild(card);
-    });
+    grid.appendChild(card);
+});
+```
+
 }
 
 /* -----------------------------
-   EVENTS
+EVENTS
 ----------------------------- */
 
 $('login-btn')?.addEventListener(
-    'click',
-    login
+'click',
+login
 );
 
 $('password-input')?.addEventListener(
-    'keydown',
-    (event) => {
-        if (event.key === 'Enter') {
-            login();
-        }
-    }
+'keydown',
+(event) => {
+if (event.key === 'Enter') {
+login();
+}
+}
 );
 
 $('session-create-btn')?.addEventListener(
-    'click',
-    createSession
+'click',
+createSession
 );
 
 $('session-go')?.addEventListener(
-    'click',
-    () => {
-        openDestination(
-            getSessionUrl()
-        );
-    }
+'click',
+() => {
+openDestination(
+getSessionUrl()
+);
+}
 );
 
 $('dashboard-go')?.addEventListener(
-    'click',
-    () => {
-        openDestination(
-            $('dashboard-url')?.value
-        );
-    }
+'click',
+() => {
+openDestination(
+$('dashboard-url')?.value
+);
+}
 );
 
 $('browser-go')?.addEventListener(
-    'click',
-    () => {
-        openDestination(
-            $('browser-url')?.value
-        );
-    }
+'click',
+() => {
+openDestination(
+$('browser-url')?.value
+);
+}
 );
 
 $('dashboard-url')?.addEventListener(
-    'keydown',
-    (event) => {
-        if (event.key === 'Enter') {
-            openDestination(
-                event.target.value
-            );
-        }
-    }
+'keydown',
+(event) => {
+if (event.key === 'Enter') {
+openDestination(
+event.target.value
+);
+}
+}
 );
 
 $('browser-url')?.addEventListener(
-    'keydown',
-    (event) => {
-        if (event.key === 'Enter') {
-            openDestination(
-                event.target.value
-            );
-        }
-    }
+'keydown',
+(event) => {
+if (event.key === 'Enter') {
+openDestination(
+event.target.value
+);
+}
+}
 );
 
 $('open-browser-card')?.addEventListener(
-    'click',
-    showBrowser
+'click',
+showBrowser
 );
 
 $('open-games-card')?.addEventListener(
-    'click',
-    showGames
+'click',
+showGames
 );
 
 $('games-back')?.addEventListener(
-    'click',
-    showHome
+'click',
+showHome
 );
 
 $('nav-home')?.addEventListener(
-    'click',
-    showHome
+'click',
+showHome
 );
 
 $('nav-browser')?.addEventListener(
-    'click',
-    showBrowser
+'click',
+showBrowser
 );
 
 $('nav-games')?.addEventListener(
-    'click',
-    showGames
+'click',
+showGames
 );
 
 $('nav-gateway')?.addEventListener(
-    'click',
-    showGateway
+'click',
+showGateway
 );
 
 document
-    .querySelectorAll('.quick-link')
-    .forEach((button) => {
-        button.addEventListener(
-            'click',
-            () => {
-                openDestination(
-                    button.dataset.url
-                );
-            }
-        );
-    });
+.querySelectorAll('.quick-link')
+.forEach((button) => {
+button.addEventListener(
+'click',
+() => {
+openDestination(
+button.dataset.url
+);
+}
+);
+});
 
 $('session-table-body')?.addEventListener(
-    'click',
-    (event) => {
-        const openButton =
-            event.target.closest(
-                '[data-open-session]'
-            );
+'click',
+(event) => {
+const openButton =
+event.target.closest(
+'[data-open-session]'
+);
 
-        const deleteButton =
-            event.target.closest(
-                '[data-delete-session]'
-            );
+```
+    const deleteButton =
+        event.target.closest(
+            '[data-delete-session]'
+        );
 
-        if (openButton) {
-            $('session-id').value =
-                openButton.dataset.openSession;
+    if (openButton) {
+        $('session-id').value =
+            openButton.dataset.openSession;
 
-            showBrowser();
-        }
-
-        if (deleteButton) {
-            deleteSession(
-                deleteButton.dataset.deleteSession
-            );
-        }
+        showBrowser();
     }
+
+    if (deleteButton) {
+        deleteSession(
+            deleteButton.dataset.deleteSession
+        );
+    }
+}
+```
+
 );
 
 $('session-advanced-toggle')?.addEventListener(
-    'click',
-    () => {
-        const container =
-            $('session-advanced-container');
+'click',
+() => {
+const container =
+$('session-advanced-container');
 
-        const button =
-            $('session-advanced-toggle');
+```
+    const button =
+        $('session-advanced-toggle');
 
-        if (!container || !button) {
-            return;
-        }
-
-        const isHidden =
-            container.style.display === 'none';
-
-        container.style.display =
-            isHidden ? 'block' : 'none';
-
-        button.textContent =
-            isHidden
-                ? '- HIDE ADVANCED OPTIONS'
-                : '+ SHOW ADVANCED OPTIONS';
+    if (!container || !button) {
+        return;
     }
+
+    const isHidden =
+        container.style.display === 'none';
+
+    container.style.display =
+        isHidden ? 'block' : 'none';
+
+    button.textContent =
+        isHidden
+            ? '- HIDE ADVANCED OPTIONS'
+            : '+ SHOW ADVANCED OPTIONS';
+}
+```
+
 );
 
 /* -----------------------------
-   START
+START
 ----------------------------- */
 
 checkAuthentication();
