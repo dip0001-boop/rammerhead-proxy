@@ -2,7 +2,6 @@ const fs = require('fs');
 const gracefulFS = require('graceful-fs');
 gracefulFS.gracefulify(fs);
 
-// This is the key - we need to let hammerhead create and manage its own server
 const RammerheadProxy = require('../classes/RammerheadProxy');
 const addStaticDirToProxy = require('../util/addStaticDirToProxy');
 const RammerheadSessionFileCache = require('../classes/RammerheadSessionFileCache');
@@ -19,30 +18,38 @@ const logger = new RammerheadLogging({
     generatePrefix: config.generatePrefix
 });
 
-// Global error handlers
+console.log('[INIT] Server starting...');
+
+// Catch ALL errors before they can kill the process
 process.on('uncaughtException', (error) => {
+    console.error('[FATAL] Uncaught Exception:', error);
     logger.error('Uncaught Exception:', error);
-    console.error('Uncaught Exception:', error);
+    // Don't exit - keep running
 });
 
-process.on('unhandledRejection', (reason) => {
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[FATAL] Unhandled Rejection:', reason);
     logger.error('Unhandled Rejection:', reason);
-    console.error('Unhandled Rejection:', reason);
+    // Don't exit - keep running
+});
+
+process.on('exit', (code) => {
+    console.log(`[EXIT] Process exiting with code: ${code}`);
 });
 
 let proxyServer;
 let listeningServer;
 
 try {
-    // Create proxy WITHOUT managing listen ourselves
-    // This lets hammerhead's Proxy class handle server creation internally
+    console.log('[INIT] Creating RammerheadProxy...');
+    
     proxyServer = new RammerheadProxy({
         logger,
         loggerGetIP: config.getIP,
         bindingAddress: HOST,
         port: PORT,
         crossDomainPort: null,
-        dontListen: false, // Let hammerhead manage the server
+        dontListen: false,
         ssl: null,
         getServerInfo: (req) => {
             const forwardedHost =
@@ -60,11 +67,15 @@ try {
         diskJsCachePath: config.diskJsCachePath,
         jsCacheSize: config.jsCacheSize
     });
+    
+    console.log('[INIT] RammerheadProxy created successfully');
 
     if (config.publicDir) {
+        console.log('[INIT] Adding static directory:', config.publicDir);
         addStaticDirToProxy(proxyServer, config.publicDir);
     }
 
+    console.log('[INIT] Creating session store...');
     const fileCacheOptions = {
         logger,
         ...config.fileCacheSessionConfig
@@ -72,64 +83,79 @@ try {
 
     const sessionStore = new RammerheadSessionFileCache(fileCacheOptions);
     sessionStore.attachToProxy(proxyServer);
+    
+    console.log('[INIT] Setting up pipeline...');
     setupPipeline(proxyServer, sessionStore);
+    
+    console.log('[INIT] Setting up routes...');
     setupRoutes(proxyServer, sessionStore, logger);
+    
+    console.log('[INIT] Initialization complete');
 
-    // Access the server that hammerhead created
-    // The Proxy class stores servers as server1 and server2
     listeningServer = proxyServer.server1 || proxyServer.server;
 
     if (listeningServer) {
-        // Add error handlers to the existing server
+        console.log('[INIT] Found listening server');
+        
         listeningServer.on('error', (error) => {
-            if (error.code === 'EADDRINUSE') {
-                logger.error(`Port ${PORT} is already in use`);
-                process.exit(1);
-            } else {
-                logger.error('Server error:', error);
+            console.error('[ERROR] Server error:', error);
+            logger.error('Server error:', error);
+        });
+
+        listeningServer.on('clientError', (error, socket) => {
+            if (error.code !== 'ECONNRESET' && error.code !== 'EPIPE') {
+                console.error('[ERROR] Client error:', error);
+                logger.error('Client error:', error);
             }
         });
 
-        listeningServer.on('listening', () => {
-            logger.info(`(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`);
-        });
-
-        // If server is already listening, log immediately
         if (listeningServer.listening) {
-            logger.info(`(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`);
+            console.log('[READY] Server already listening');
         }
     } else {
-        // Fallback - just log that we're ready
-        logger.info(`(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`);
+        console.log('[WARN] No listening server found');
     }
 
+    logger.info(`(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`);
+    console.log('[READY] Server ready and waiting for requests');
+
 } catch (error) {
-    logger.error('Failed to initialize proxy:', error);
-    console.error('Failed to initialize proxy:', error);
+    console.error('[FATAL] Initialization failed:', error);
+    logger.error('Initialization failed:', error);
     console.error(error.stack);
-    process.exit(1);
+    // Don't exit immediately - give time for logging
+    setTimeout(() => {
+        process.exit(1);
+    }, 1000);
 }
 
 // Graceful shutdown
-function shutdown() {
-    logger.info('Shutting down gracefully...');
+function shutdown(signal) {
+    console.log(`[SHUTDOWN] Received ${signal}`);
     
     if (proxyServer) {
         try {
             proxyServer.close();
+            console.log('[SHUTDOWN] Proxy closed');
         } catch (error) {
-            logger.error('Error closing proxy:', error);
+            console.error('[SHUTDOWN] Error closing proxy:', error);
         }
     }
     
     if (listeningServer) {
         try {
             listeningServer.close(() => {
-                logger.info('Server closed');
+                console.log('[SHUTDOWN] Listening server closed');
                 process.exit(0);
             });
+            
+            // Timeout fallback
+            setTimeout(() => {
+                console.log('[SHUTDOWN] Timeout - forcing exit');
+                process.exit(0);
+            }, 5000);
         } catch (error) {
-            logger.error('Error closing listening server:', error);
+            console.error('[SHUTDOWN] Error:', error);
             process.exit(0);
         }
     } else {
@@ -137,5 +163,10 @@ function shutdown() {
     }
 }
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Explicitly keep stdin open so process doesn't exit
+if (process.stdin.isTTY) {
+    process.stdin.resume();
+}
