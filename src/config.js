@@ -8,41 +8,31 @@ module.exports = {
 
     bindingAddress: '0.0.0.0',
 
-    // Render provides the port through process.env.PORT
     port: PORT,
 
-    // Disable the second server on Render
     crossDomainPort: null,
 
     publicDir: path.join(__dirname, '../public'),
 
-    // Render should run one Node process
+    // IMPORTANT: Render should run one Rammerhead worker
     workers: 1,
 
     ssl: null,
 
-    // Render terminates HTTPS before forwarding traffic to Node.
-    // The public URL is HTTPS, but the internal Node server is HTTP.
-    getServerInfo: (req) => {
-        const host = req.headers.host || '';
-
-        return {
-            hostname: host.split(':')[0],
-            port: 443,
-            crossDomainPort: 443,
-            protocol: 'https:'
-        };
-    },
-
-    //// SESSION CONFIGURATION ////
+    getServerInfo: (req) => ({
+        hostname: new URL('https://' + req.headers.host).hostname,
+        port: 443,
+        crossDomainPort: null,
+        protocol: 'https:'
+    }),
 
     password: null,
 
     disableLocalStorageSync: false,
 
-    restrictSessionToIP: true,
+    restrictSessionToIP: false,
 
-    diskJsCachePath: path.join(__dirname, '../cache-js'),
+    diskJsCachePath: null,
 
     jsCacheSize: 50 * 1024 * 1024,
 
@@ -82,7 +72,7 @@ module.exports = {
 
     //// LOGGING CONFIGURATION ////
 
-    logLevel: 'traffic',
+    logLevel: 'info',
 
     generatePrefix: (level) =>
         `[${new Date().toISOString()}] [${level.toUpperCase()}] `,
@@ -90,7 +80,7 @@ module.exports = {
     getIP: function (req) {
         return (
             req.headers['x-forwarded-for'] ||
-            req.socket.remoteAddress ||
+            req.connection.remoteAddress ||
             ''
         ).split(',')[0].trim();
     }
