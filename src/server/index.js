@@ -12,7 +12,7 @@ const setupRoutes = require('./setupRoutes');
 const setupPipeline = require('./setupPipeline');
 const RammerheadLogging = require('../classes/RammerheadLogging');
 
-const PORT = Number(process.env.PORT) || 10000;
+const PORT = Number(process.env.PORT) || Number(config.port) || 10000;
 const HOST = '0.0.0.0';
 
 const logger = new RammerheadLogging({
@@ -20,24 +20,25 @@ const logger = new RammerheadLogging({
     generatePrefix: config.generatePrefix
 });
 
-/*
- * IMPORTANT:
- * dontListen is true because we explicitly start the actual server below.
- * This prevents Rammerhead's internal listener logic from interfering with
- * Render's required PORT.
- */
 const proxyServer = new RammerheadProxy({
     logger,
     loggerGetIP: config.getIP,
     bindingAddress: HOST,
     port: PORT,
     crossDomainPort: null,
-    dontListen: true,
+
+    // Let Rammerhead create and listen to its own HTTP server.
+    dontListen: false,
+
     ssl: null,
 
     getServerInfo: (req) => {
-        const host = req.headers.host || '';
-        const hostname = host.split(':')[0];
+        const forwardedHost =
+            req.headers['x-forwarded-host'] ||
+            req.headers.host ||
+            '';
+
+        const hostname = forwardedHost.split(':')[0];
 
         return {
             hostname,
@@ -67,22 +68,9 @@ sessionStore.attachToProxy(proxyServer);
 setupPipeline(proxyServer, sessionStore);
 setupRoutes(proxyServer, sessionStore, logger);
 
-const server = proxyServer.server1;
-
-if (!server) {
-    throw new Error('Rammerhead did not create its main HTTP server');
-}
-
-server.on('error', (error) => {
-    logger.error(`Server error: ${error.message}`);
-    process.exit(1);
-});
-
-server.listen(PORT, HOST, () => {
-    logger.info(
-        `(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`
-    );
-});
+logger.info(
+    `(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`
+);
 
 exitHook((done) => {
     logger.info('(server) Received exit signal, closing proxy server');
@@ -95,7 +83,7 @@ exitHook((done) => {
 
     logger.info('(server) Closed proxy server');
 
-    if (done) {
+    if (typeof done === 'function') {
         done();
     }
 });
