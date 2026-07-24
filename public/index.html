@@ -1,477 +1,484 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>THE VAULT</title>
+```
+<title>THE VAULT</title>
 
-    <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css">
+```
+
 </head>
 
 <body>
 
-    <!-- LOGIN SCREEN -->
-    <main id="login-screen" class="login-screen">
+```
+<!-- LOGIN SCREEN -->
+<main id="login-screen" class="login-screen">
 
-        <section class="login-card">
+    <section class="login-card">
 
+        <h1>THE VAULT</h1>
+
+        <input
+            type="password"
+            id="password-input"
+            placeholder="Enter Password"
+            autocomplete="off"
+        >
+
+        <button
+            type="button"
+            id="login-btn"
+        >
+            ENTER
+        </button>
+
+        <p id="error-text"></p>
+
+    </section>
+
+</main>
+
+
+<!-- MAIN APPLICATION -->
+<main id="app" style="display: none;">
+
+    <header class="vault-header">
+
+        <div class="vault-logo">
             <h1>THE VAULT</h1>
+            <p>SECURE ACCESS SYSTEM</p>
+        </div>
 
-            <input
-                type="password"
-                id="password-input"
-                placeholder="Enter Password"
-                autocomplete="off"
-            >
+        <div class="dashboard-status">
+            <span class="status-dot"></span>
+            ONLINE
+        </div>
 
-            <button
-                type="button"
-                id="login-btn"
-            >
-                ENTER
-            </button>
+    </header>
 
-            <p id="error-text"></p>
+
+    <div class="vault-container">
+
+        <!-- HOME DASHBOARD -->
+        <section class="vault-dashboard">
+
+            <div class="dashboard-top">
+
+                <div>
+                    <span class="dashboard-eyebrow">
+                        WELCOME BACK
+                    </span>
+
+                    <h2>THE VAULT</h2>
+
+                    <p>
+                        Access your private browsing and gaming gateway.
+                    </p>
+                </div>
+
+            </div>
+
+
+            <div class="dashboard-search">
+
+                <input
+                    type="text"
+                    id="dashboard-url"
+                    placeholder="Enter a destination URL..."
+                    autocomplete="off"
+                >
+
+                <button
+                    type="button"
+                    id="dashboard-go"
+                    class="vault-button primary"
+                >
+                    GO
+                </button>
+
+            </div>
+
+
+            <div class="dashboard-cards">
+
+                <button
+                    type="button"
+                    id="open-browser-card"
+                    class="dashboard-card"
+                >
+                    <span class="dashboard-card-icon">◉</span>
+
+                    <strong>PRIVATE BROWSER</strong>
+
+                    <small>
+                        Open a destination through your active session.
+                    </small>
+                </button>
+
+
+                <button
+                    type="button"
+                    id="open-games-card"
+                    class="dashboard-card"
+                >
+                    <span class="dashboard-card-icon">◆</span>
+
+                    <strong>GAME VAULT</strong>
+
+                    <small>
+                        Browse the available game collection.
+                    </small>
+                </button>
+
+            </div>
 
         </section>
 
-    </main>
 
+        <!-- BROWSER SECTION -->
+        <section
+            id="browser-section"
+            class="browser-section"
+            style="display: none;"
+        >
 
-    <!-- MAIN APPLICATION -->
-    <main id="app" style="display: none;">
+            <div class="browser-dashboard">
 
-        <header class="vault-header">
+                <div class="browser-dashboard-header">
 
-            <div class="vault-logo">
-                <h1>THE VAULT</h1>
-                <p>SECURE ACCESS SYSTEM</p>
-            </div>
+                    <h2>PRIVATE BROWSER</h2>
 
-            <div class="dashboard-status">
-                <span class="status-dot"></span>
-                ONLINE
-            </div>
-
-        </header>
-
-
-        <div class="vault-container">
-
-            <!-- HOME DASHBOARD -->
-            <section class="vault-dashboard">
-
-                <div class="dashboard-top">
-
-                    <div>
-                        <span class="dashboard-eyebrow">
-                            WELCOME BACK
-                        </span>
-
-                        <h2>THE VAULT</h2>
-
-                        <p>
-                            Access your private browsing and gaming gateway.
-                        </p>
-                    </div>
+                    <p>
+                        Enter a destination to open it through your session.
+                    </p>
 
                 </div>
 
 
-                <div class="dashboard-search">
+                <div class="browser-search">
 
                     <input
                         type="text"
-                        id="dashboard-url"
-                        placeholder="Enter a destination URL..."
+                        id="browser-url"
+                        placeholder="https://example.com"
                         autocomplete="off"
                     >
 
                     <button
                         type="button"
-                        id="dashboard-go"
+                        id="browser-go"
                         class="vault-button primary"
                     >
-                        GO
+                        OPEN
                     </button>
 
                 </div>
 
 
-                <div class="dashboard-cards">
+                <div class="quick-links">
 
                     <button
                         type="button"
-                        id="open-browser-card"
-                        class="dashboard-card"
+                        class="quick-link"
+                        data-url="https://google.com"
                     >
-                        <span class="dashboard-card-icon">◉</span>
-
-                        <strong>PRIVATE BROWSER</strong>
-
-                        <small>
-                            Open a destination through your active session.
-                        </small>
+                        GOOGLE
                     </button>
-
 
                     <button
                         type="button"
-                        id="open-games-card"
-                        class="dashboard-card"
+                        class="quick-link"
+                        data-url="https://youtube.com"
                     >
-                        <span class="dashboard-card-icon">◆</span>
-
-                        <strong>GAME VAULT</strong>
-
-                        <small>
-                            Browse the available game collection.
-                        </small>
+                        YOUTUBE
                     </button>
-
-                </div>
-
-            </section>
-
-
-            <!-- BROWSER SECTION -->
-            <section
-                id="browser-section"
-                class="browser-section"
-                style="display: none;"
-            >
-
-                <div class="browser-dashboard">
-
-                    <div class="browser-dashboard-header">
-
-                        <h2>PRIVATE BROWSER</h2>
-
-                        <p>
-                            Enter a destination to open it through your session.
-                        </p>
-
-                    </div>
-
-
-                    <div class="browser-search">
-
-                        <input
-                            type="text"
-                            id="browser-url"
-                            placeholder="https://example.com"
-                            autocomplete="off"
-                        >
-
-                        <button
-                            type="button"
-                            id="browser-go"
-                            class="vault-button primary"
-                        >
-                            OPEN
-                        </button>
-
-                    </div>
-
-
-                    <div class="quick-links">
-
-                        <button
-                            type="button"
-                            class="quick-link"
-                            data-url="https://google.com"
-                        >
-                            GOOGLE
-                        </button>
-
-                        <button
-                            type="button"
-                            class="quick-link"
-                            data-url="https://youtube.com"
-                        >
-                            YOUTUBE
-                        </button>
-
-                        <button
-                            type="button"
-                            class="quick-link"
-                            data-url="https://wikipedia.org"
-                        >
-                            WIKIPEDIA
-                        </button>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- GAMES SECTION -->
-            <section
-                id="games-section"
-                class="games-section"
-                style="display: none;"
-            >
-
-                <div class="games-header">
-
-                    <div>
-
-                        <h2>GAME VAULT</h2>
-
-                        <p>
-                            Select a game to launch it.
-                        </p>
-
-                    </div>
 
                     <button
                         type="button"
-                        id="games-back"
-                        class="vault-button secondary"
+                        class="quick-link"
+                        data-url="https://wikipedia.org"
                     >
-                        BACK
+                        WIKIPEDIA
                     </button>
 
                 </div>
 
+            </div>
 
-                <div
-                    id="games-grid"
-                    class="games-grid"
-                ></div>
-
-            </section>
+        </section>
 
 
-            <!-- GATEWAY / SESSION SECTION -->
-            <section
-                id="gateway-section"
-                class="vault-card"
-                style="display: none;"
-            >
+        <!-- GAMES SECTION -->
+        <section
+            id="games-section"
+            class="games-section"
+            style="display: none;"
+        >
 
-                <div class="vault-card-header">
+            <div class="games-header">
 
-                    <h2>SESSION GATEWAY</h2>
+                <div>
 
-                    <span class="vault-badge">
-                        RAMMERHEAD
-                    </span>
+                    <h2>GAME VAULT</h2>
+
+                    <p>
+                        Select a game to launch it.
+                    </p>
 
                 </div>
-
-
-                <p class="vault-description">
-                    Create a browsing session before opening destinations.
-                </p>
-
-
-                <div class="vault-notice">
-                    Create a session to begin browsing.
-                </div>
-
-
-                <div class="vault-input-group">
-
-                    <label for="session-id">
-                        SESSION ID
-                    </label>
-
-                    <div class="vault-url-row">
-
-                        <input
-                            type="text"
-                            id="session-id"
-                            placeholder="Session ID"
-                            readonly
-                        >
-
-                        <button
-                            type="button"
-                            id="session-create-btn"
-                            class="vault-button primary"
-                        >
-                            CREATE SESSION
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-                <div class="vault-input-group">
-
-                    <label for="session-url">
-                        DESTINATION
-                    </label>
-
-                    <div class="vault-url-row">
-
-                        <input
-                            type="text"
-                            id="session-url"
-                            placeholder="https://example.com"
-                            autocomplete="off"
-                        >
-
-                        <button
-                            type="button"
-                            id="session-go"
-                            class="vault-button primary"
-                        >
-                            OPEN
-                        </button>
-
-                    </div>
-
-                </div>
-
 
                 <button
                     type="button"
-                    id="session-advanced-toggle"
-                    class="advanced-toggle"
+                    id="games-back"
+                    class="vault-button secondary"
                 >
-                    + SHOW ADVANCED OPTIONS
+                    BACK
                 </button>
 
+            </div>
 
-                <div
-                    id="session-advanced-container"
-                    class="advanced-container"
-                    style="display: none;"
-                >
 
-                    <label class="vault-checkbox">
+            <div
+                id="games-grid"
+                class="games-grid"
+            ></div>
 
-                        <input
-                            type="checkbox"
-                            id="session-shuffling"
-                        >
+        </section>
 
-                        Enable session shuffling
 
+        <!-- GATEWAY / SESSION SECTION -->
+        <section
+            id="gateway-section"
+            class="vault-card"
+            style="display: none;"
+        >
+
+            <div class="vault-card-header">
+
+                <h2>SESSION GATEWAY</h2>
+
+                <span class="vault-badge">
+                    RAMMERHEAD
+                </span>
+
+            </div>
+
+
+            <p class="vault-description">
+                Create a browsing session before opening destinations.
+            </p>
+
+
+            <div class="vault-notice">
+                Create a session to begin browsing.
+            </div>
+
+
+            <div class="vault-input-group">
+
+                <label for="session-id">
+                    SESSION ID
+                </label>
+
+                <div class="vault-url-row">
+
+                    <input
+                        type="text"
+                        id="session-id"
+                        placeholder="Session ID"
+                        readonly
+                    >
+
+                    <button
+                        type="button"
+                        id="session-create-btn"
+                        class="vault-button primary"
+                    >
+                        CREATE SESSION
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <div class="vault-input-group">
+
+                <label for="session-url">
+                    DESTINATION
+                </label>
+
+                <div class="vault-url-row">
+
+                    <input
+                        type="text"
+                        id="session-url"
+                        placeholder="https://example.com"
+                        autocomplete="off"
+                    >
+
+                    <button
+                        type="button"
+                        id="session-go"
+                        class="vault-button primary"
+                    >
+                        OPEN
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <button
+                type="button"
+                id="session-advanced-toggle"
+                class="advanced-toggle"
+            >
+                + SHOW ADVANCED OPTIONS
+            </button>
+
+
+            <div
+                id="session-advanced-container"
+                class="advanced-container"
+                style="display: none;"
+            >
+
+                <label class="vault-checkbox">
+
+                    <input
+                        type="checkbox"
+                        id="session-shuffling"
+                    >
+
+                    Enable session shuffling
+
+                </label>
+
+
+                <div class="vault-input-group">
+
+                    <label for="session-httpproxy">
+                        HTTP PROXY
                     </label>
 
+                    <input
+                        type="text"
+                        id="session-httpproxy"
+                        placeholder="Optional HTTP proxy"
+                    >
 
-                    <div class="vault-input-group">
+                </div>
 
-                        <label for="session-httpproxy">
-                            HTTP PROXY
-                        </label>
+            </div>
 
-                        <input
-                            type="text"
-                            id="session-httpproxy"
-                            placeholder="Optional HTTP proxy"
-                        >
 
-                    </div>
+            <section class="session-section">
+
+                <div class="section-title">
+
+                    <h2>ACTIVE SESSIONS</h2>
+
+                    <span>SESSION MANAGER</span>
 
                 </div>
 
 
-                <section class="session-section">
+                <div class="table-wrapper">
 
-                    <div class="section-title">
+                    <table class="session-table">
 
-                        <h2>ACTIVE SESSIONS</h2>
+                        <thead>
 
-                        <span>SESSION MANAGER</span>
+                            <tr>
 
-                    </div>
+                                <th>SESSION ID</th>
+                                <th>STATUS</th>
+                                <th>ACTIONS</th>
 
+                            </tr>
 
-                    <div class="table-wrapper">
+                        </thead>
 
-                        <table class="session-table">
+                        <tbody id="session-table-body">
 
-                            <thead>
+                            <tr>
 
-                                <tr>
+                                <td colspan="3">
+                                    Create a session to begin.
+                                </td>
 
-                                    <th>SESSION ID</th>
-                                    <th>STATUS</th>
-                                    <th>ACTIONS</th>
+                            </tr>
 
-                                </tr>
+                        </tbody>
 
-                            </thead>
+                    </table>
 
-                            <tbody id="session-table-body">
-
-                                <tr>
-
-                                    <td colspan="3">
-                                        Create a session to begin.
-                                    </td>
-
-                                </tr>
-
-                            </tbody>
-
-                        </table>
-
-                    </div>
-
-                </section>
+                </div>
 
             </section>
 
-        </div>
+        </section>
+
+    </div>
 
 
-        <!-- BOTTOM NAVIGATION -->
-        <nav class="vault-bottom-nav">
+    <!-- BOTTOM NAVIGATION -->
+    <nav class="vault-bottom-nav">
 
-            <button
-                type="button"
-                id="nav-home"
-                class="bottom-nav-item active"
-            >
-                <span>⌂</span>
-                HOME
-            </button>
-
-
-            <button
-                type="button"
-                id="nav-browser"
-                class="bottom-nav-item"
-            >
-                <span>◉</span>
-                BROWSER
-            </button>
+        <button
+            type="button"
+            id="nav-home"
+            class="bottom-nav-item active"
+        >
+            <span>⌂</span>
+            HOME
+        </button>
 
 
-            <button
-                type="button"
-                id="nav-games"
-                class="bottom-nav-item"
-            >
-                <span>◆</span>
-                GAMES
-            </button>
+        <button
+            type="button"
+            id="nav-browser"
+            class="bottom-nav-item"
+        >
+            <span>◉</span>
+            BROWSER
+        </button>
 
 
-            <button
-                type="button"
-                id="nav-gateway"
-                class="bottom-nav-item"
-            >
-                <span>⚙</span>
-                GATEWAY
-            </button>
-
-        </nav>
-
-    </main>
+        <button
+            type="button"
+            id="nav-games"
+            class="bottom-nav-item"
+        >
+            <span>◆</span>
+            GAMES
+        </button>
 
 
-    <script src="script.js"></script>
+        <button
+            type="button"
+            id="nav-gateway"
+            class="bottom-nav-item"
+        >
+            <span>⚙</span>
+            GATEWAY
+        </button>
+
+    </nav>
+
+</main>
+
+
+<!-- LOAD AFTER THE HTML -->
+<script src="script.js?v=2"></script>
+```
 
 </body>
 </html>
