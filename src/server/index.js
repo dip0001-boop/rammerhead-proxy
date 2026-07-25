@@ -20,7 +20,6 @@ const logger = new RammerheadLogging({
 
 console.log('[INIT] Server starting...');
 
-// Catch ALL errors before they can kill the process
 process.on('uncaughtException', (error) => {
     console.error('[FATAL] Uncaught Exception:', error);
     logger.error('Uncaught Exception:', error);
@@ -58,6 +57,7 @@ try {
             return {
                 hostname,
                 port: PORT,
+                crossDomainPort: PORT,
                 protocol: req.headers['x-forwarded-proto'] ? `${req.headers['x-forwarded-proto']}:` : 'http:'
             };
         },
@@ -90,16 +90,10 @@ try {
     
     console.log('[INIT] Initialization complete');
 
-    // EXPLICITLY CALL LISTEN / SETUP IF SERVER DOES NOT EXIST YET
-    if (typeof proxyServer.setup === 'function') {
-        proxyServer.setup();
-    } else if (typeof proxyServer.listen === 'function') {
-        proxyServer.listen(PORT, HOST);
-    }
-
+    // Extract underlying hammerhead server instances
     listeningServer = proxyServer.server1 || proxyServer.server;
 
-    if (listeningServer) {
+    if (listeningServer && typeof listeningServer.on === 'function') {
         console.log('[INIT] Found listening server');
         
         listeningServer.on('error', (error) => {
@@ -113,20 +107,12 @@ try {
                 logger.error('Client error:', error);
             }
         });
-
-        // If not actively listening yet, explicitly tell the HTTP server to listen
-        if (!listeningServer.listening) {
-            listeningServer.listen(PORT, HOST, () => {
-                console.log(`[READY] Server successfully listening on http://${HOST}:${PORT}`);
-            });
-        } else {
-            console.log('[READY] Server already listening');
-        }
     } else {
-        console.log('[WARN] No listening server found');
+        console.log('[INFO] Proxy running (Server managed by Hammerhead)');
     }
 
     logger.info(`(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`);
+    console.log('[READY] Server ready and waiting for requests');
 
 } catch (error) {
     console.error('[FATAL] Initialization failed:', error);
@@ -149,25 +135,7 @@ function shutdown(signal) {
             console.error('[SHUTDOWN] Error closing proxy:', error);
         }
     }
-    
-    if (listeningServer) {
-        try {
-            listeningServer.close(() => {
-                console.log('[SHUTDOWN] Listening server closed');
-                process.exit(0);
-            });
-            
-            setTimeout(() => {
-                console.log('[SHUTDOWN] Timeout - forcing exit');
-                process.exit(0);
-            }, 5000);
-        } catch (error) {
-            console.error('[SHUTDOWN] Error:', error);
-            process.exit(0);
-        }
-    } else {
-        process.exit(0);
-    }
+    process.exit(0);
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
