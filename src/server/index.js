@@ -1,5 +1,4 @@
 const fs = require('fs');
-const http = require('http');
 const gracefulFS = require('graceful-fs');
 gracefulFS.gracefulify(fs);
 
@@ -36,19 +35,18 @@ process.on('exit', (code) => {
 });
 
 let proxyServer;
-let server;
 
 try {
     console.log('[INIT] Creating RammerheadProxy...');
     
-    // Pass dontListen: true so Rammerhead does not handle port binding internally
+    // Keep dontListen: false so Hammerhead initializes internal options properly
     proxyServer = new RammerheadProxy({
         logger,
         loggerGetIP: config.getIP,
         bindingAddress: HOST,
         port: PORT,
         crossDomainPort: null,
-        dontListen: true,
+        dontListen: false,
         ssl: null,
         getServerInfo: (req) => {
             const forwardedHost =
@@ -92,26 +90,24 @@ try {
     
     console.log('[INIT] Initialization complete');
 
-    // Create standard HTTP server and bind proxy request handler
-    server = http.createServer((req, res) => {
-        proxyServer._onRequest(req, res);
-    });
+    const mainServer = proxyServer.server1 || proxyServer.server;
 
-    // Handle WebSocket / Upgrade requests
-    server.on('upgrade', (req, socket, head) => {
-        proxyServer._onUpgradeRequest(req, socket, head);
-    });
+    if (mainServer && typeof mainServer.on === 'function') {
+        mainServer.on('error', (error) => {
+            console.error('[ERROR] Server error:', error);
+            logger.error('Server error:', error);
+        });
 
-    server.on('error', (error) => {
-        console.error('[ERROR] Server error:', error);
-        logger.error('Server error:', error);
-    });
+        mainServer.on('clientError', (error, socket) => {
+            if (error.code !== 'ECONNRESET' && error.code !== 'EPIPE') {
+                console.error('[ERROR] Client error:', error);
+                logger.error('Client error:', error);
+            }
+        });
+    }
 
-    // EXPLICIT LISTEN FOR RENDER
-    server.listen(PORT, HOST, () => {
-        logger.info(`(server) Rammerhead proxy explicitly listening on http://${HOST}:${PORT}`);
-        console.log(`[READY] Server listening on ${HOST}:${PORT}`);
-    });
+    logger.info(`(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`);
+    console.log('[READY] Server ready and waiting for requests');
 
 } catch (error) {
     console.error('[FATAL] Initialization failed:', error);
@@ -125,15 +121,12 @@ try {
 // Graceful shutdown
 function shutdown(signal) {
     console.log(`[SHUTDOWN] Received ${signal}`);
-    
-    if (server) {
-        server.close(() => {
-            console.log('[SHUTDOWN] HTTP server closed');
-            process.exit(0);
-        });
-    } else {
-        process.exit(0);
+    if (proxyServer) {
+        try {
+            proxyServer.close();
+        } catch (e) {}
     }
+    process.exit(0);
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
