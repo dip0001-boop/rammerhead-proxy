@@ -24,13 +24,11 @@ console.log('[INIT] Server starting...');
 process.on('uncaughtException', (error) => {
     console.error('[FATAL] Uncaught Exception:', error);
     logger.error('Uncaught Exception:', error);
-    // Don't exit - keep running
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('[FATAL] Unhandled Rejection:', reason);
     logger.error('Unhandled Rejection:', reason);
-    // Don't exit - keep running
 });
 
 process.on('exit', (code) => {
@@ -59,8 +57,8 @@ try {
             const hostname = forwardedHost.split(':')[0];
             return {
                 hostname,
-                port: 443,
-                protocol: 'https:'
+                port: PORT,
+                protocol: req.headers['x-forwarded-proto'] ? `${req.headers['x-forwarded-proto']}:` : 'http:'
             };
         },
         disableLocalStorageSync: config.disableLocalStorageSync,
@@ -92,6 +90,13 @@ try {
     
     console.log('[INIT] Initialization complete');
 
+    // EXPLICITLY CALL LISTEN / SETUP IF SERVER DOES NOT EXIST YET
+    if (typeof proxyServer.setup === 'function') {
+        proxyServer.setup();
+    } else if (typeof proxyServer.listen === 'function') {
+        proxyServer.listen(PORT, HOST);
+    }
+
     listeningServer = proxyServer.server1 || proxyServer.server;
 
     if (listeningServer) {
@@ -109,7 +114,12 @@ try {
             }
         });
 
-        if (listeningServer.listening) {
+        // If not actively listening yet, explicitly tell the HTTP server to listen
+        if (!listeningServer.listening) {
+            listeningServer.listen(PORT, HOST, () => {
+                console.log(`[READY] Server successfully listening on http://${HOST}:${PORT}`);
+            });
+        } else {
             console.log('[READY] Server already listening');
         }
     } else {
@@ -117,13 +127,11 @@ try {
     }
 
     logger.info(`(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`);
-    console.log('[READY] Server ready and waiting for requests');
 
 } catch (error) {
     console.error('[FATAL] Initialization failed:', error);
     logger.error('Initialization failed:', error);
     console.error(error.stack);
-    // Don't exit immediately - give time for logging
     setTimeout(() => {
         process.exit(1);
     }, 1000);
@@ -149,7 +157,6 @@ function shutdown(signal) {
                 process.exit(0);
             });
             
-            // Timeout fallback
             setTimeout(() => {
                 console.log('[SHUTDOWN] Timeout - forcing exit');
                 process.exit(0);
@@ -165,8 +172,3 @@ function shutdown(signal) {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
-
-// Explicitly keep stdin open so process doesn't exit
-if (process.stdin.isTTY) {
-    process.stdin.resume();
-}
