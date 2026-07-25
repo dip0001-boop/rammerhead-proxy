@@ -69,31 +69,117 @@ class RammerheadProxy extends Proxy {
      * @param {string} options.diskJsCachePath - set to null to disable disk cache and use memory instead (disabled by default)
      * @param {number} options.jsCacheSize - in bytes. default: 50mb
      */
-// inside constructor, after creating originalListen
-const originalListen = http.Server.prototype.listen;
+    constructor({
+        loggerGetIP = (req) => req.socket.remoteAddress,
+        logger = new RammerheadLogging({ logLevel: 'disabled' }),
+        bindingAddress = '127.0.0.1',
+        port = 8080,
+        crossDomainPort = 8081,
+        dontListen = false,
+        ssl = null,
+        getServerInfo = (req) => {
+            const hostHeader = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${port}`;
+            const hostname = String(hostHeader).split(':')[0] || 'localhost';
+            const isHttps = req.headers['x-forwarded-proto'] === 'https' || !!req.socket.encrypted;
 
-http.Server.prototype.listen = function (...args) {
-    if (dontListen) return this;
+            return {
+                hostname,
+                port,
+                protocol: isHttps ? 'https:' : 'http:'
+            };
+        },
+        disableLocalStorageSync = false,
+        diskJsCachePath = null,
+        jsCacheSize = 50 * 1024 * 1024
+    } = {}) {
+        let restoreNativeHooks = () => {};
 
-    const callback = args.find((arg) => typeof arg === 'function');
-    if (callback) {
-        return originalListen.call(this, port, bindingAddress, callback);
-    }
-    return originalListen.call(this, port, bindingAddress);
-};
+        try {
+            if (!crossDomainPort) {
+                const httpOrHttps = ssl ? https : http;
+                const proxyHttpOrHttps = http;
+                const originalProxyCreateServer = proxyHttpOrHttps.createServer;
+                const originalCreateServer = httpOrHttps.createServer; // handle recursion case if proxyHttpOrHttps and httpOrHttps is the same
+                let onlyOneHttpServer = null;
 
-this._restoreNativeHooks = () => {
-    proxyHttpOrHttps.createServer = originalProxyCreateServer;
-    http.Server.prototype.listen = originalListen;
-};
+                // a hack to force testcafe-hammerhead's proxy library into using only one http port.
+                // a downside to using only one proxy server is that crossdomain requests
+                // will not be simulated correctly
+                proxyHttpOrHttps.createServer = function (...args) {
+                    const emptyFunc = () => {};
+                    if (onlyOneHttpServer) {
+                        // createServer for server1 already called. now we return a mock http server for server2
+                        return { on: emptyFunc, listen: emptyFunc, close: emptyFunc };
+                    }
+                    if (args.length !== 2) throw new Error('unexpected argument length coming from hammerhead');
+                    return (onlyOneHttpServer = originalCreateServer(...args));
+                };
 
-super('hostname', 'port', 'port', {
-    ssl,
-    developmentMode: true,
-    cache: true
-});
+                // now, we force the server to listen to a specific port and a binding address, regardless of what
+                // hammerhead server.listen(anything)
+                const originalListen = http.Server.prototype.listen;
 
-this.crossDomainPort = null;
+                http.Server.prototype.listen = function (...args) {
+                    if (dontListen) return this;
+
+                    const callback = args.find((arg) => typeof arg === 'function');
+                    if (callback) {
+                        return originalListen.call(this, port, bindingAddress, callback);
+                    }
+                    return originalListen.call(this, port, bindingAddress);
+                };
+
+                restoreNativeHooks = () => {
+                    proxyHttpOrHttps.createServer = originalProxyCreateServer;
+                    http.Server.prototype.listen = originalListen;
+                };
+
+                // actual proxy initialization
+                // the values don't matter (except for developmentMode), since we'll be rewriting serverInfo anyway
+                super('hostname', 'port', 'port', {
+                    ssl,
+                    developmentMode: true,
+                    cache: true
+                });
+
+                this.crossDomainPort = null;
+            } else {
+                // just initialize the proxy as usual, since we don't need to do hacky stuff like the above.
+                // we still need to make sure the proxy binds to the correct address though
+                const originalListen = http.Server.prototype.listen;
+
+                http.Server.prototype.listen = function (...args) {
+                    if (dontListen) return this;
+
+                    const callback = args.find((arg) => typeof arg === 'function');
+                    if (callback) {
+                        return originalListen.call(this, port, bindingAddress, callback);
+                    }
+                    return originalListen.call(this, port, bindingAddress);
+                };
+
+                restoreNativeHooks = () => {
+                    http.Server.prototype.listen = originalListen;
+                };
+
+                super('doesntmatter', port, crossDomainPort, {
+                    ssl,
+                    developmentMode: true,
+                    cache: true
+                });
+
+                this.crossDomainPort = crossDomainPort;
+            }
+        } catch (error) {
+            try {
+                restoreNativeHooks();
+            } catch (_) {}
+            throw error;
+        }
+
+        this._restoreNativeHooks = restoreNativeHooks;
+
+        this._setupRammerheadServiceRoutes();
         this._setupLocalStorageServiceRoutes(disableLocalStorageSync);
 
         this.onRequestPipeline = [];
