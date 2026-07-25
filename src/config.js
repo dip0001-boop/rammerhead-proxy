@@ -20,9 +20,9 @@ module.exports = {
 
         return {
             hostname: host.split(':')[0],
-            port: 443,
-            crossDomainPort: 443,
-            protocol: 'https:'
+            port: PORT,
+            crossDomainPort: PORT,
+            protocol: req.headers['x-forwarded-proto'] ? `${req.headers['x-forwarded-proto']}:` : 'http:'
         };
     },
 
