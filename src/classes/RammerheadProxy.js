@@ -16,6 +16,7 @@ require('../util/fixWebsocket');
 require('../util/addMoreErrorGuards');
 require('../util/addUrlShuffling');
 require('../util/patchAsyncResourceProcessor');
+
 let addJSDiskCache = function (path, size) {
     require('../util/addJSDiskCache')(path, size);
     // modification only works once
@@ -77,88 +78,106 @@ class RammerheadProxy extends Proxy {
         dontListen = false,
         ssl = null,
         getServerInfo = (req) => {
-            const { hostname, port } = new URL('http://' + req.headers.host);
+            const hostHeader = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${port}`;
+            const hostname = String(hostHeader).split(':')[0] || 'localhost';
+            const isHttps = req.headers['x-forwarded-proto'] === 'https' || !!req.socket.encrypted;
+
             return {
                 hostname,
                 port,
-                protocol: req.socket.encrypted ? 'https:' : 'http:'
+                protocol: isHttps ? 'https:' : 'http:'
             };
         },
         disableLocalStorageSync = false,
         diskJsCachePath = null,
         jsCacheSize = 50 * 1024 * 1024
     } = {}) {
-        if (!crossDomainPort) {
-            const httpOrHttps = ssl ? https : http;
-            const proxyHttpOrHttps = http;
-            const originalProxyCreateServer = proxyHttpOrHttps.createServer;
-            const originalCreateServer = httpOrHttps.createServer; // handle recursion case if proxyHttpOrHttps and httpOrHttps are the same
-            let onlyOneHttpServer = null;
+        let restoreNativeHooks = () => {};
 
-            // a hack to force testcafe-hammerhead's proxy library into using only one http port.
-            // a downside to using only one proxy server is that crossdomain requests
-            // will not be simulated correctly
-            proxyHttpOrHttps.createServer = function (...args) {
-                const emptyFunc = () => {};
-                if (onlyOneHttpServer) {
-                    // createServer for server1 already called. now we return a mock http server for server2
-                    return { on: emptyFunc, listen: emptyFunc, close: emptyFunc };
-                }
-                if (args.length !== 2) throw new Error('unexpected argument length coming from hammerhead');
-                return (onlyOneHttpServer = originalCreateServer(...args));
-            };
+        try {
+            if (!crossDomainPort) {
+                const httpOrHttps = ssl ? https : http;
+                const proxyHttpOrHttps = http;
+                const originalProxyCreateServer = proxyHttpOrHttps.createServer;
+                const originalCreateServer = httpOrHttps.createServer; // handle recursion case if proxyHttpOrHttps and httpOrHttps is the same
+                let onlyOneHttpServer = null;
 
-            // now, we force the server to listen to a specific port and a binding address, regardless of what
-            // hammerhead server.listen(anything)
-            const originalListen = http.Server.prototype.listen;
-            http.Server.prototype.listen = function (_proxyPort, hostArg, callback) {
-                if (dontListen) return;
-                // Handle different argument patterns for listen()
-                if (typeof hostArg === 'function') {
-                    callback = hostArg;
-                }
-                if (callback) {
-                    return originalListen.call(this, port, bindingAddress, callback);
-                } else {
+                // a hack to force testcafe-hammerhead's proxy library into using only one http port.
+                // a downside to using only one proxy server is that crossdomain requests
+                // will not be simulated correctly
+                proxyHttpOrHttps.createServer = function (...args) {
+                    const emptyFunc = () => {};
+                    if (onlyOneHttpServer) {
+                        // createServer for server1 already called. now we return a mock http server for server2
+                        return { on: emptyFunc, listen: emptyFunc, close: emptyFunc };
+                    }
+                    if (args.length !== 2) throw new Error('unexpected argument length coming from hammerhead');
+                    return (onlyOneHttpServer = originalCreateServer(...args));
+                };
+
+                // now, we force the server to listen to a specific port and a binding address, regardless of what
+                // hammerhead server.listen(anything)
+                const originalListen = http.Server.prototype.listen;
+
+                http.Server.prototype.listen = function (...args) {
+                    if (dontListen) return this;
+
+                    const callback = args.find((arg) => typeof arg === 'function');
+                    if (callback) {
+                        return originalListen.call(this, port, bindingAddress, callback);
+                    }
                     return originalListen.call(this, port, bindingAddress);
-                }
-            };
+                };
 
-            // actual proxy initialization
-            // the values don't matter (except for developmentMode), since we'll be rewriting serverInfo anyway
-            super('hostname', 'port', 'port', {
-                ssl,
-                developmentMode: true,
-                cache: true
-            });
+                restoreNativeHooks = () => {
+                    proxyHttpOrHttps.createServer = originalProxyCreateServer;
+                    http.Server.prototype.listen = originalListen;
+                };
 
-            // restore hooked functions to their original state
-            proxyHttpOrHttps.createServer = originalProxyCreateServer;
-            http.Server.prototype.listen = originalListen;
-        } else {
-            // just initialize the proxy as usual, since we don't need to do hacky stuff like the above.
-            // we still need to make sure the proxy binds to the correct address though
-            const originalListen = http.Server.prototype.listen;
-            http.Server.prototype.listen = function (portArg, hostArg, callback) {
-                if (dontListen) return;
-                // Handle different argument patterns for listen()
-                if (typeof hostArg === 'function') {
-                    callback = hostArg;
-                }
-                if (callback) {
-                    return originalListen.call(this, portArg, bindingAddress, callback);
-                } else {
-                    return originalListen.call(this, portArg, bindingAddress);
-                }
-            };
-            super('doesntmatter', port, crossDomainPort, {
-                ssl,
-                developmentMode: true,
-                cache: true
-            });
-            this.crossDomainPort = crossDomainPort;
-            http.Server.prototype.listen = originalListen;
+                // actual proxy initialization
+                // the values don't matter (except for developmentMode), since we'll be rewriting serverInfo anyway
+                super('hostname', 'port', 'port', {
+                    ssl,
+                    developmentMode: true,
+                    cache: true
+                });
+
+                this.crossDomainPort = null;
+            } else {
+                // just initialize the proxy as usual, since we don't need to do hacky stuff like the above.
+                // we still need to make sure the proxy binds to the correct address though
+                const originalListen = http.Server.prototype.listen;
+
+                http.Server.prototype.listen = function (...args) {
+                    if (dontListen) return this;
+
+                    const callback = args.find((arg) => typeof arg === 'function');
+                    if (callback) {
+                        return originalListen.call(this, port, bindingAddress, callback);
+                    }
+                    return originalListen.call(this, port, bindingAddress);
+                };
+
+                restoreNativeHooks = () => {
+                    http.Server.prototype.listen = originalListen;
+                };
+
+                super('doesntmatter', port, crossDomainPort, {
+                    ssl,
+                    developmentMode: true,
+                    cache: true
+                });
+
+                this.crossDomainPort = crossDomainPort;
+            }
+        } catch (error) {
+            try {
+                restoreNativeHooks();
+            } catch (_) {}
+            throw error;
         }
+
+        this._restoreNativeHooks = restoreNativeHooks;
 
         this._setupRammerheadServiceRoutes();
         this._setupLocalStorageServiceRoutes(disableLocalStorageSync);
@@ -172,9 +191,9 @@ class RammerheadProxy extends Proxy {
             'referrer-policy': () => 'no-referrer-when-downgrade',
             'report-to': () => undefined,
             'cross-origin-embedder-policy': () => undefined,
-            'access-control-allow-origin': () => "*",
-            'access-control-allow-methods': () => "*",
-            'access-control-allow-headers': () => "*"
+            'access-control-allow-origin': () => '*',
+            'access-control-allow-methods': () => '*',
+            'access-control-allow-headers': () => '*'
         };
 
         this.getServerInfo = getServerInfo;
@@ -190,7 +209,7 @@ class RammerheadProxy extends Proxy {
     // add WS routing
     /**
      * since we have .GET and .POST, why not add in a .WS also
-     * @param {string|RegExp} route - can be '/route/to/things' or /^\\/route\\/(this)|(that)\\/things$/
+     * @param {string|RegExp} route - can be '/route/to/things' or /^\/route\/(this)|(that)\/things$/
      * @param {(ws: WebSocket, req: http.IncomingMessage) => WebSocket} handler - ws is the connection between the client and the server
      * @param {object} websocketOptions - read https://www.npmjs.com/package/ws for a list of Websocket.Server options. Note that
      * the { noServer: true } will always be applied
@@ -209,11 +228,13 @@ class RammerheadProxy extends Proxy {
 
         return wsServer;
     }
+
     unregisterWS(route) {
         if (!this.getWSRoute(route, true)) {
             throw new TypeError('websocket route does not exist');
         }
     }
+
     /**
      * @param {string} path
      * @returns {{ route: string|RegExp, handler: (ws: WebSocket, req: http.IncomingMessage) => WebSocket, wsServer: WebSocket.Server}|null}
@@ -234,6 +255,7 @@ class RammerheadProxy extends Proxy {
         }
         return null;
     }
+
     /**
      * @private
      */
@@ -273,6 +295,7 @@ class RammerheadProxy extends Proxy {
             this.onRequestPipeline.unshift(onRequest);
         }
     }
+
     /**
      * @param {(req: http.IncomingMessage,
      *          socket: stream.Duplex,
@@ -309,6 +332,7 @@ class RammerheadProxy extends Proxy {
         }
         return !!this.getWSRoute(req.url);
     }
+
     /**
      * @param {http.IncomingMessage} req
      * @param {http.ServerResponse} res
@@ -392,14 +416,17 @@ class RammerheadProxy extends Proxy {
                 return;
             }
         }
+
         // hammerhead's routing does not support websockets. Allowing it
         // will result in an error thrown
         if (isRoute && isWebsocket) {
             httpResponse.badRequest(this.logger, req, res, ip, 'Rejected unsupported websocket request');
             return;
         }
+
         super._onRequest(req, res, serverInfo);
     }
+
     /**
      * @param {http.IncomingMessage} req
      * @param {stream.Duplex} socket
@@ -434,6 +461,7 @@ class RammerheadProxy extends Proxy {
             cacheRequests: false
         };
     }
+
     /**
      * @private
      */
@@ -444,10 +472,11 @@ class RammerheadProxy extends Proxy {
             ),
             contentType: 'application/x-javascript'
         });
+
         this.GET('/api/shuffleDict', (req, res) => {
-            res.setHeader("Access-Control-Allow-Origin", "*");
+            res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Access-Control-Allow-Methods', '*');
-            res.setHeader("Access-Control-Allow-Headers", "*");
+            res.setHeader('Access-Control-Allow-Headers', '*');
             const { id } = new URLPath(req.url).getParams();
             if (!id || !this.openSessions.has(id)) {
                 return httpResponse.badRequest(this.logger, req, res, this.loggerGetIP(req), 'Invalid session id');
@@ -455,6 +484,7 @@ class RammerheadProxy extends Proxy {
             res.end(JSON.stringify(this.openSessions.get(id).shuffleDict) || '');
         });
     }
+
     /**
      * @private
      */
@@ -465,6 +495,7 @@ class RammerheadProxy extends Proxy {
                 res.end('server disabled localStorage sync');
                 return;
             }
+
             const badRequest = (msg) => httpResponse.badRequest(this.logger, req, res, this.loggerGetIP(req), msg);
             const respondJson = (obj) => res.end(JSON.stringify(obj));
             const { sessionId, origin } = new URLPath(req.url).getParams();
@@ -512,8 +543,7 @@ class RammerheadProxy extends Proxy {
                         parsed.timestamp = parseInt(parsed.timestamp);
                         if (isNaN(parsed.timestamp)) return badRequest('must specify valid timestamp');
                         if (parsed.timestamp > now) return badRequest('cannot specify timestamp in the future');
-                        if (!parsed.data || typeof parsed.data !== 'object')
-                            return badRequest('data must be an object');
+                        if (!parsed.data || typeof parsed.data !== 'object') return badRequest('data must be an object');
 
                         for (const prop in parsed.data) {
                             if (typeof parsed.data[prop] !== 'string') {
@@ -540,14 +570,18 @@ class RammerheadProxy extends Proxy {
                             });
                         }
                     }
+
                 case 'update':
-                    if (!session.data.localStorage[origin])
+                    if (!session.data.localStorage[origin]) {
                         return badRequest('must perform sync first on a new origin');
-                    if (!parsed.updateData || typeof parsed.updateData !== 'object')
+                    }
+                    if (!parsed.updateData || typeof parsed.updateData !== 'object') {
                         return badRequest('updateData must be an object');
+                    }
                     for (const prop in parsed.updateData) {
-                        if (!parsed.updateData[prop] || typeof parsed.updateData[prop] !== 'string')
+                        if (!parsed.updateData[prop] || typeof parsed.updateData[prop] !== 'string') {
                             return badRequest('updateData[prop] must be a non-empty string');
+                        }
                     }
                     for (const prop in parsed.updateData) {
                         session.data.localStorage[origin].data[prop] = parsed.updateData[prop];
@@ -556,6 +590,7 @@ class RammerheadProxy extends Proxy {
                     return respondJson({
                         timestamp: now
                     });
+
                 default:
                     return badRequest('unknown type ' + parsed.type);
             }
@@ -565,9 +600,20 @@ class RammerheadProxy extends Proxy {
     openSession() {
         throw new TypeError('unimplemented. please use a RammerheadSessionStore and use their .add() method');
     }
+
     close() {
-        super.close();
-        this.openSessions.close();
+        try {
+            super.close();
+        } finally {
+            try {
+                this.openSessions.close();
+            } catch (_) {}
+            try {
+                if (this._restoreNativeHooks) {
+                    this._restoreNativeHooks();
+                }
+            } catch (_) {}
+        }
     }
 
     /**
