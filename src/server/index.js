@@ -1,4 +1,5 @@
 const fs = require('fs');
+const http = require('http');
 const gracefulFS = require('graceful-fs');
 gracefulFS.gracefulify(fs);
 
@@ -30,11 +31,8 @@ process.on('unhandledRejection', (reason, promise) => {
     logger.error('Unhandled Rejection:', reason);
 });
 
-process.on('exit', (code) => {
-    console.log(`[EXIT] Process exiting with code: ${code}`);
-});
-
 let proxyServer;
+let server;
 
 try {
     console.log('[INIT] Creating RammerheadProxy...');
@@ -45,7 +43,7 @@ try {
         bindingAddress: HOST,
         port: PORT,
         crossDomainPort: null,
-        dontListen: false,
+        dontListen: true, // Let our explicit http server handle port binding
         ssl: null,
         getServerInfo: (req) => {
             const hostHeader = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
@@ -64,35 +62,16 @@ try {
     
     console.log('[INIT] RammerheadProxy created successfully');
 
-    // Health check routes for Render port scanner
-    proxyServer.GET('/health', (req, res) => {
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end('OK');
-    });
-
-    proxyServer.GET('/', (req, res) => {
-        // If publicDir has an index.html, serve static, else respond with 200
-        if (config.publicDir && fs.existsSync(`${config.publicDir}/index.html`)) {
-            res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(fs.readFileSync(`${config.publicDir}/index.html`));
-        } else {
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end('Rammerhead Proxy is active');
-        }
-    });
-
     if (config.publicDir) {
         console.log('[INIT] Adding static directory:', config.publicDir);
         addStaticDirToProxy(proxyServer, config.publicDir);
     }
 
     console.log('[INIT] Creating session store...');
-    const fileCacheOptions = {
+    const sessionStore = new RammerheadSessionFileCache({
         logger,
         ...config.fileCacheSessionConfig
-    };
-
-    const sessionStore = new RammerheadSessionFileCache(fileCacheOptions);
+    });
     sessionStore.attachToProxy(proxyServer);
     
     console.log('[INIT] Setting up pipeline...');
@@ -103,43 +82,51 @@ try {
     
     console.log('[INIT] Initialization complete');
 
-    const mainServer = proxyServer.server1 || proxyServer.server;
+    // Create a native HTTP server to handle health checks and proxying
+    server = http.createServer((req, res) => {
+        // Direct response for Render's health scanner on base routes
+        if (req.url === '/health' || req.url === '/ping') {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            return res.end('OK');
+        }
 
-    if (mainServer && typeof mainServer.on === 'function') {
-        mainServer.on('error', (error) => {
-            console.error('[ERROR] Server error:', error);
-            logger.error('Server error:', error);
-        });
+        // Delegate all standard requests to Rammerhead
+        proxyServer._onRequest(req, res);
+    });
 
-        mainServer.on('clientError', (error, socket) => {
-            if (error.code !== 'ECONNRESET' && error.code !== 'EPIPE') {
-                console.error('[ERROR] Client error:', error);
-                logger.error('Client error:', error);
-            }
-        });
-    }
+    // Handle WebSocket / WebTransport upgrades
+    server.on('upgrade', (req, socket, head) => {
+        proxyServer._onUpgradeRequest(req, socket, head);
+    });
 
-    logger.info(`(server) Rammerhead proxy is listening on http://${HOST}:${PORT}`);
-    console.log('[READY] Server ready and waiting for requests');
+    server.on('error', (error) => {
+        console.error('[ERROR] Server error:', error);
+        logger.error('Server error:', error);
+    });
+
+    // Bind server explicitly to port 10000
+    server.listen(PORT, HOST, () => {
+        logger.info(`(server) Rammerhead proxy listening explicitly on http://${HOST}:${PORT}`);
+        console.log(`[READY] Server bound and listening on ${HOST}:${PORT}`);
+    });
 
 } catch (error) {
     console.error('[FATAL] Initialization failed:', error);
     logger.error('Initialization failed:', error);
-    console.error(error.stack);
-    setTimeout(() => {
-        process.exit(1);
-    }, 1000);
+    process.exit(1);
 }
 
-// Graceful shutdown
+// Graceful shutdown handling
 function shutdown(signal) {
     console.log(`[SHUTDOWN] Received ${signal}`);
-    if (proxyServer) {
-        try {
-            proxyServer.close();
-        } catch (e) {}
+    if (server) {
+        server.close(() => {
+            console.log('[SHUTDOWN] Server closed cleanly');
+            process.exit(0);
+        });
+    } else {
+        process.exit(0);
     }
-    process.exit(0);
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
