@@ -1,5 +1,4 @@
 const fs = require('fs');
-const http = require('http');
 const gracefulFS = require('graceful-fs');
 gracefulFS.gracefulify(fs);
 
@@ -32,103 +31,94 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 let proxyServer;
-let server;
 
-try {
-    console.log('[INIT] Creating RammerheadProxy...');
+async function startServer() {
+    try {
+        console.log('[INIT] Creating RammerheadProxy...');
 
-    proxyServer = new RammerheadProxy({
-        logger,
-        loggerGetIP: config.getIP,
-        bindingAddress: HOST,
-        port: PORT,
-        crossDomainPort: null,
-        dontListen: true,
-        ssl: null,
-        getServerInfo: (req) => {
-            const hostHeader = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
-            const hostname = hostHeader.split(':')[0];
-            
-            // Always treat Render incoming traffic as HTTPS in production
-            const isHttps = req.headers['x-forwarded-proto'] === 'https' || process.env.RENDER;
-            const protocol = isHttps ? 'https:' : 'http:';
+        // Let Rammerhead handle listening and options initialization
+        proxyServer = new RammerheadProxy({
+            logger,
+            loggerGetIP: config.getIP,
+            bindingAddress: HOST,
+            port: PORT,
+            crossDomainPort: null,
+            dontListen: false, // MUST be false so Hammerhead initializes internally
+            ssl: null,
+            getServerInfo: (req) => {
+                const hostHeader = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
+                const hostname = hostHeader.split(':')[0];
+                const isHttps = req.headers['x-forwarded-proto'] === 'https' || process.env.RENDER;
+                
+                return {
+                    hostname: hostname || 'localhost',
+                    port: PORT,
+                    crossDomainPort: PORT,
+                    protocol: isHttps ? 'https:' : 'http:'
+                };
+            },
+            disableLocalStorageSync: config.disableLocalStorageSync,
+            diskJsCachePath: config.diskJsCachePath,
+            jsCacheSize: config.jsCacheSize
+        });
 
-            return {
-                hostname: hostname || 'localhost',
-                port: PORT,
-                crossDomainPort: PORT,
-                protocol: protocol
-            };
-        },
-        disableLocalStorageSync: config.disableLocalStorageSync,
-        diskJsCachePath: config.diskJsCachePath,
-        jsCacheSize: config.jsCacheSize
-    });
-
-    console.log('[INIT] RammerheadProxy created successfully');
-
-    if (config.publicDir) {
-        console.log('[INIT] Adding static directory:', config.publicDir);
-        addStaticDirToProxy(proxyServer, config.publicDir);
-    }
-
-    console.log('[INIT] Creating session store...');
-    const sessionStore = new RammerheadSessionFileCache({
-        logger,
-        ...config.fileCacheSessionConfig
-    });
-    sessionStore.attachToProxy(proxyServer);
-
-    console.log('[INIT] Setting up pipeline...');
-    setupPipeline(proxyServer, sessionStore);
-
-    console.log('[INIT] Setting up routes...');
-    setupRoutes(proxyServer, sessionStore, logger);
-
-    console.log('[INIT] Initialization complete');
-
-    server = http.createServer((req, res) => {
-        // Render Health Checks
-        if (req.url === '/health' || req.url === '/ping') {
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            return res.end('OK');
+        // Explicitly trigger proxy setup if method exists to prevent nativeAutomation null errors
+        if (typeof proxyServer.open === 'function') {
+            await proxyServer.open();
         }
 
-        // Pass all other HTTP requests to Rammerhead
-        proxyServer._onRequest(req, res);
-    });
+        console.log('[INIT] RammerheadProxy created successfully');
 
-    // Handle WebSocket / Upgrade requests cleanly
-    server.on('upgrade', (req, socket, head) => {
-        proxyServer._onUpgradeRequest(req, socket, head);
-    });
+        // Add health check routes directly to proxy instance
+        proxyServer.GET('/health', (req, res) => {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            res.end('OK');
+        });
 
-    server.on('error', (error) => {
-        console.error('[ERROR] Server error:', error);
-        logger.error('Server error:', error);
-    });
+        proxyServer.GET('/ping', (req, res) => {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            res.end('OK');
+        });
 
-    server.listen(PORT, HOST, () => {
-        logger.info(`(server) Rammerhead proxy listening explicitly on http://${HOST}:${PORT}`);
-        console.log(`[READY] Server listening on ${HOST}:${PORT}`);
-    });
+        if (config.publicDir) {
+            console.log('[INIT] Adding static directory:', config.publicDir);
+            addStaticDirToProxy(proxyServer, config.publicDir);
+        }
 
-} catch (error) {
-    console.error('[FATAL] Initialization failed:', error);
-    logger.error('Initialization failed:', error);
-    process.exit(1);
+        console.log('[INIT] Creating session store...');
+        const sessionStore = new RammerheadSessionFileCache({
+            logger,
+            ...config.fileCacheSessionConfig
+        });
+        sessionStore.attachToProxy(proxyServer);
+
+        console.log('[INIT] Setting up pipeline...');
+        setupPipeline(proxyServer, sessionStore);
+
+        console.log('[INIT] Setting up routes...');
+        setupRoutes(proxyServer, sessionStore, logger);
+
+        console.log('[INIT] Initialization complete');
+        console.log(`[READY] Rammerhead listening on ${HOST}:${PORT}`);
+
+    } catch (error) {
+        console.error('[FATAL] Initialization failed:', error);
+        logger.error('Initialization failed:', error);
+        process.exit(1);
+    }
 }
 
+startServer();
+
+// Graceful shutdown
 function shutdown(signal) {
     console.log(`[SHUTDOWN] Received ${signal}`);
-    if (server) {
-        server.close(() => {
-            console.log('[SHUTDOWN] Server closed');
-            process.exit(0);
-        });
-    } else {
-        process.exit(0);
+    if (proxyServer) {
+        try {
+            proxyServer.close();
+        } catch (e) {}
     }
+    process.exit(0);
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
