@@ -39,7 +39,6 @@ let proxyServer;
 try {
     console.log('[INIT] Creating RammerheadProxy...');
     
-    // Keep dontListen: false so Hammerhead initializes internal options properly
     proxyServer = new RammerheadProxy({
         logger,
         loggerGetIP: config.getIP,
@@ -49,13 +48,10 @@ try {
         dontListen: false,
         ssl: null,
         getServerInfo: (req) => {
-            const forwardedHost =
-                req.headers['x-forwarded-host'] ||
-                req.headers.host ||
-                '';
-            const hostname = forwardedHost.split(':')[0];
+            const hostHeader = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
+            const [hostname] = hostHeader.split(':');
             return {
-                hostname,
+                hostname: hostname || 'localhost',
                 port: PORT,
                 crossDomainPort: PORT,
                 protocol: req.headers['x-forwarded-proto'] ? `${req.headers['x-forwarded-proto']}:` : 'http:'
@@ -67,6 +63,23 @@ try {
     });
     
     console.log('[INIT] RammerheadProxy created successfully');
+
+    // Health check routes for Render port scanner
+    proxyServer.GET('/health', (req, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('OK');
+    });
+
+    proxyServer.GET('/', (req, res) => {
+        // If publicDir has an index.html, serve static, else respond with 200
+        if (config.publicDir && fs.existsSync(`${config.publicDir}/index.html`)) {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(fs.readFileSync(`${config.publicDir}/index.html`));
+        } else {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            res.end('Rammerhead Proxy is active');
+        }
+    });
 
     if (config.publicDir) {
         console.log('[INIT] Adding static directory:', config.publicDir);
