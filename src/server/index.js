@@ -36,30 +36,35 @@ let server;
 
 try {
     console.log('[INIT] Creating RammerheadProxy...');
-    
+
     proxyServer = new RammerheadProxy({
         logger,
         loggerGetIP: config.getIP,
         bindingAddress: HOST,
         port: PORT,
         crossDomainPort: null,
-        dontListen: true, // Let our explicit http server handle port binding
+        dontListen: true,
         ssl: null,
         getServerInfo: (req) => {
             const hostHeader = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
-            const [hostname] = hostHeader.split(':');
+            const hostname = hostHeader.split(':')[0];
+            
+            // Always treat Render incoming traffic as HTTPS in production
+            const isHttps = req.headers['x-forwarded-proto'] === 'https' || process.env.RENDER;
+            const protocol = isHttps ? 'https:' : 'http:';
+
             return {
                 hostname: hostname || 'localhost',
                 port: PORT,
                 crossDomainPort: PORT,
-                protocol: req.headers['x-forwarded-proto'] ? `${req.headers['x-forwarded-proto']}:` : 'http:'
+                protocol: protocol
             };
         },
         disableLocalStorageSync: config.disableLocalStorageSync,
         diskJsCachePath: config.diskJsCachePath,
         jsCacheSize: config.jsCacheSize
     });
-    
+
     console.log('[INIT] RammerheadProxy created successfully');
 
     if (config.publicDir) {
@@ -73,28 +78,27 @@ try {
         ...config.fileCacheSessionConfig
     });
     sessionStore.attachToProxy(proxyServer);
-    
+
     console.log('[INIT] Setting up pipeline...');
     setupPipeline(proxyServer, sessionStore);
-    
+
     console.log('[INIT] Setting up routes...');
     setupRoutes(proxyServer, sessionStore, logger);
-    
+
     console.log('[INIT] Initialization complete');
 
-    // Create a native HTTP server to handle health checks and proxying
     server = http.createServer((req, res) => {
-        // Direct response for Render's health scanner on base routes
+        // Render Health Checks
         if (req.url === '/health' || req.url === '/ping') {
             res.writeHead(200, { 'Content-Type': 'text/plain' });
             return res.end('OK');
         }
 
-        // Delegate all standard requests to Rammerhead
+        // Pass all other HTTP requests to Rammerhead
         proxyServer._onRequest(req, res);
     });
 
-    // Handle WebSocket / WebTransport upgrades
+    // Handle WebSocket / Upgrade requests cleanly
     server.on('upgrade', (req, socket, head) => {
         proxyServer._onUpgradeRequest(req, socket, head);
     });
@@ -104,10 +108,9 @@ try {
         logger.error('Server error:', error);
     });
 
-    // Bind server explicitly to port 10000
     server.listen(PORT, HOST, () => {
         logger.info(`(server) Rammerhead proxy listening explicitly on http://${HOST}:${PORT}`);
-        console.log(`[READY] Server bound and listening on ${HOST}:${PORT}`);
+        console.log(`[READY] Server listening on ${HOST}:${PORT}`);
     });
 
 } catch (error) {
@@ -116,12 +119,11 @@ try {
     process.exit(1);
 }
 
-// Graceful shutdown handling
 function shutdown(signal) {
     console.log(`[SHUTDOWN] Received ${signal}`);
     if (server) {
         server.close(() => {
-            console.log('[SHUTDOWN] Server closed cleanly');
+            console.log('[SHUTDOWN] Server closed');
             process.exit(0);
         });
     } else {
