@@ -1,5 +1,4 @@
 const fs = require('fs');
-const http = require('http');
 const gracefulFS = require('graceful-fs');
 gracefulFS.gracefulify(fs);
 
@@ -13,8 +12,6 @@ const RammerheadLogging = require('../classes/RammerheadLogging');
 
 const PORT = Number(process.env.PORT) || Number(config.port) || 10000;
 const HOST = '0.0.0.0';
-// Hidden port to allow Hammerhead to initialize natively without conflicts
-const INTERNAL_PORT = PORT + 1; 
 
 const logger = new RammerheadLogging({
     logLevel: config.logLevel,
@@ -34,19 +31,19 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 let proxyServer;
-let publicServer;
 
 try {
     console.log('[INIT] Creating RammerheadProxy...');
 
-    // 1. Let Rammerhead start natively on a hidden port so it initializes its internal state perfectly
+    // Allow Rammerhead to bind directly to the public interface/port natively.
+    // This guarantees .open() runs fully, preventing the 'nativeAutomation' null error.
     proxyServer = new RammerheadProxy({
         logger,
         loggerGetIP: config.getIP,
-        bindingAddress: '127.0.0.1', 
-        port: INTERNAL_PORT,         
-        crossDomainPort: INTERNAL_PORT + 1,
-        dontListen: false,           // CRITICAL: Must be false to prevent nativeAutomation crash
+        bindingAddress: HOST,
+        port: PORT,
+        crossDomainPort: null,
+        dontListen: false, // Must be false to initialize internal proxy options
         ssl: null,
         getServerInfo: (req) => {
             const hostHeader = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
@@ -55,7 +52,7 @@ try {
             
             return {
                 hostname: hostname || 'localhost',
-                port: PORT, // Tell Rammerhead to route traffic using the public Render port
+                port: PORT,
                 crossDomainPort: PORT,
                 protocol: isHttps ? 'https:' : 'http:'
             };
@@ -65,42 +62,39 @@ try {
         jsCacheSize: config.jsCacheSize
     });
 
-    console.log('[INIT] RammerheadProxy initialized on internal port');
+    console.log('[INIT] RammerheadProxy created successfully');
+
+    // Built-in health check routes for Render
+    proxyServer.GET('/health', (req, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('OK');
+    });
+
+    proxyServer.GET('/ping', (req, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('OK');
+    });
 
     if (config.publicDir) {
+        console.log('[INIT] Adding static directory:', config.publicDir);
         addStaticDirToProxy(proxyServer, config.publicDir);
     }
 
+    console.log('[INIT] Creating session store...');
     const sessionStore = new RammerheadSessionFileCache({
         logger,
         ...config.fileCacheSessionConfig
     });
     sessionStore.attachToProxy(proxyServer);
 
+    console.log('[INIT] Setting up pipeline...');
     setupPipeline(proxyServer, sessionStore);
+
+    console.log('[INIT] Setting up routes...');
     setupRoutes(proxyServer, sessionStore, logger);
 
-    // 2. Create the explicit public HTTP server that Render requires for health checks
-    publicServer = http.createServer((req, res) => {
-        // Intercept Render's health probes
-        if (req.url === '/health' || req.url === '/ping') {
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            return res.end('OK');
-        }
-        
-        // Forward all other traffic to Rammerhead
-        proxyServer._onRequest(req, res);
-    });
-
-    // Forward WebSocket connections
-    publicServer.on('upgrade', (req, socket, head) => {
-        proxyServer._onUpgradeRequest(req, socket, head);
-    });
-
-    // Bind strictly to the public port for Render
-    publicServer.listen(PORT, HOST, () => {
-        console.log(`[READY] Render public server fully live and bound to ${HOST}:${PORT}`);
-    });
+    console.log('[INIT] Initialization complete');
+    console.log(`[READY] Server ready and listening on ${HOST}:${PORT}`);
 
 } catch (error) {
     console.error('[FATAL] Initialization failed:', error);
@@ -108,19 +102,15 @@ try {
     process.exit(1);
 }
 
-// Graceful shutdown
+// Graceful shutdown handling
 function shutdown(signal) {
     console.log(`[SHUTDOWN] Received ${signal}`);
-    if (publicServer) {
-        publicServer.close(() => {
-            if (proxyServer) {
-                try { proxyServer.close(); } catch(e) {}
-            }
-            process.exit(0);
-        });
-    } else {
-        process.exit(0);
+    if (proxyServer) {
+        try {
+            proxyServer.close();
+        } catch (e) {}
     }
+    process.exit(0);
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
