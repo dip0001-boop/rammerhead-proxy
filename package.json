@@ -3,14 +3,12 @@
   "version": "1.2.41",
   "description": "User friendly web proxy powered by testcafe-hammerhead",
   "main": "src/index.js",
-  "scripts": {
-    "start": "node src/server.js",
-    "build": "node src/build.js",
-    "bstart": "npm run build && npm run start",
-    "health": "echo OK"
-  },
   "engines": {
     "node": "18.x"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "build": "node src/build.js"
   },
   "dependencies": {
     "async-exit-hook": "2.0.1",
@@ -22,7 +20,7 @@
     "jsdom": "20.0.3",
     "keyv-lru-files": "github:binary-person/keyv-lru-files#patch-1",
     "mime": "2.6.0",
-    "graceful-fs": "4.2.10",
+    "sticky-session-custom": "1.2.0",
     "testcafe-hammerhead": "31.7.1",
     "uglify-js": "3.19.3",
     "uuid": "8.3.2",
