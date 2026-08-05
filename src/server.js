@@ -1,14 +1,28 @@
-require('./server/index.js');
+const http = require("http");
 
-// Keep process alive
-setInterval(() => {}, 1000);
+console.log("[BOOT] Loading server...");
 
-process.on('SIGTERM', () => {
-    console.log('[SHUTDOWN] SIGTERM received');
-    process.exit(0);
+// Load the Rammerhead initialization
+require("./server/index.js");
+
+// Temporary HTTP server for Render health detection
+const PORT = Number(process.env.PORT) || 10000;
+
+const healthServer = http.createServer((req, res) => {
+    if (req.url === "/health" || req.url === "/ping") {
+        res.writeHead(200, {
+            "Content-Type": "text/plain"
+        });
+        res.end("OK");
+        return;
+    }
+
+    res.writeHead(200, {
+        "Content-Type": "text/plain"
+    });
+    res.end("Rammerhead booted");
 });
 
-process.on('SIGINT', () => {
-    console.log('[SHUTDOWN] SIGINT received');
-    process.exit(0);
+healthServer.listen(PORT, "0.0.0.0", () => {
+    console.log(`[BOOT] Health server listening on 0.0.0.0:${PORT}`);
 });
