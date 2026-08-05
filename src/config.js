@@ -3,30 +3,35 @@ const path = require('path');
 const PORT = Number(process.env.PORT) || 10000;
 
 module.exports = {
-    // HOSTING
     bindingAddress: '0.0.0.0',
     port: PORT,
     crossDomainPort: null,
 
     publicDir: path.join(__dirname, '../public'),
 
-    // IMPORTANT: one process only on Render
     workers: 1,
 
     ssl: null,
 
     getServerInfo: (req) => {
-        const host = req.headers.host || '';
+        const forwardedHost =
+            req.headers['x-forwarded-host'] ||
+            req.headers.host ||
+            `localhost:${PORT}`;
+
+        const hostname = forwardedHost.split(':')[0];
 
         return {
-            hostname: host.split(':')[0],
+            hostname,
             port: PORT,
             crossDomainPort: PORT,
-            protocol: req.headers['x-forwarded-proto'] ? `${req.headers['x-forwarded-proto']}:` : 'http:'
+            protocol:
+                req.headers['x-forwarded-proto'] === 'https'
+                    ? 'https:'
+                    : 'http:'
         };
     },
 
-    // Password is handled by your own Vault frontend/backend system
     password: null,
 
     disableLocalStorageSync: false,
@@ -37,7 +42,6 @@ module.exports = {
 
     jsCacheSize: 50 * 1024 * 1024,
 
-    // HEADERS
     stripClientHeaders: [
         'cf-ipcountry',
         'cf-ray',
@@ -50,7 +54,6 @@ module.exports = {
 
     rewriteServerHeaders: {},
 
-    // SESSIONS
     fileCacheSessionConfig: {
         saveDirectory: path.join(__dirname, '../sessions'),
 
@@ -69,19 +72,17 @@ module.exports = {
         deleteCorruptedSessions: true
     },
 
-    // LOGGING
     logLevel: 'info',
 
     generatePrefix: (level) =>
         `[${new Date().toISOString()}] [${level.toUpperCase()}] `,
 
-    getIP: (req) => {
-        return (
+    getIP: (req) =>
+        (
             req.headers['x-forwarded-for'] ||
             req.socket.remoteAddress ||
             ''
         )
             .split(',')[0]
-            .trim();
-    }
+            .trim()
 };
