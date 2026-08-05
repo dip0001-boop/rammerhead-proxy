@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: rammerhead-proxy
+    env: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+      - key: WEB_CONCURRENCY
+        value: 1
+    routes:
+      - path: /
+        matchType: prefix
+        priority: 0
+    autoDeployOnPush: true
+    maxInstanceCount: 1
+    region: oregon
