@@ -1,6 +1,6 @@
 require('./server/index.js');
 
-// Keep Node alive
+// Keep process alive
 setInterval(() => {}, 1000);
 
 process.on('SIGTERM', () => {
