@@ -1,14 +1,16 @@
 const fs = require('fs');
+const http = require('http');
 const gracefulFS = require('graceful-fs');
+
 gracefulFS.gracefulify(fs);
 
-const RammerheadProxy = require('../classes/RammerheadProxy');
-const addStaticDirToProxy = require('../util/addStaticDirToProxy');
-const RammerheadSessionFileCache = require('../classes/RammerheadSessionFileCache');
-const config = require('../config');
-const setupRoutes = require('./setupRoutes');
-const setupPipeline = require('./setupPipeline');
-const RammerheadLogging = require('../classes/RammerheadLogging');
+const RammerheadProxy = require('./src/classes/RammerheadProxy');
+const addStaticDirToProxy = require('./src/util/addStaticDirToProxy');
+const RammerheadSessionFileCache = require('./src/classes/RammerheadSessionFileCache');
+const config = require('./src/config');
+const setupRoutes = require('./src/server/setupRoutes');
+const setupPipeline = require('./src/server/setupPipeline');
+const RammerheadLogging = require('./src/classes/RammerheadLogging');
 
 const PORT = Number(process.env.PORT) || Number(config.port) || 10000;
 const HOST = '0.0.0.0';
@@ -19,6 +21,7 @@ const logger = new RammerheadLogging({
 });
 
 console.log('[INIT] Server starting...');
+console.log(`[INIT] PORT: ${PORT}, HOST: ${HOST}`);
 
 process.on('uncaughtException', (error) => {
     console.error('[FATAL] Uncaught Exception:', error);
@@ -30,77 +33,90 @@ process.on('unhandledRejection', (reason, promise) => {
     logger.error('Unhandled Rejection:', reason);
 });
 
+// Create a temporary health check server to respond immediately to Render health checks
+const healthCheckServer = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('OK');
+});
+
 let proxyServer;
+let isListening = false;
 
-try {
-    console.log('[INIT] Creating RammerheadProxy...');
+healthCheckServer.listen(PORT, HOST, () => {
+    console.log(`[HEALTH] Health check server listening on ${HOST}:${PORT}`);
+    isListening = true;
+});
 
-    // Allow Rammerhead to bind directly to the public interface/port natively.
-    // This guarantees .open() runs fully, preventing the 'nativeAutomation' null error.
-    proxyServer = new RammerheadProxy({
-        logger,
-        loggerGetIP: config.getIP,
-        bindingAddress: HOST,
-        port: PORT,
-        crossDomainPort: null,
-        dontListen: false, // Must be false to initialize internal proxy options
-        ssl: null,
-        getServerInfo: (req) => {
-            const hostHeader = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
-            const hostname = hostHeader.split(':')[0];
-            const isHttps = req.headers['x-forwarded-proto'] === 'https' || process.env.RENDER;
-            
-            return {
-                hostname: hostname || 'localhost',
-                port: PORT,
-                crossDomainPort: PORT,
-                protocol: isHttps ? 'https:' : 'http:'
-            };
-        },
-        disableLocalStorageSync: config.disableLocalStorageSync,
-        diskJsCachePath: config.diskJsCachePath,
-        jsCacheSize: config.jsCacheSize
-    });
+healthCheckServer.on('error', (err) => {
+    console.error('[ERROR] Health check server error:', err);
+});
 
-    console.log('[INIT] RammerheadProxy created successfully');
+setTimeout(() => {
+    try {
+        console.log('[INIT] Creating RammerheadProxy...');
 
-    // Built-in health check routes for Render
-    proxyServer.GET('/health', (req, res) => {
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end('OK');
-    });
+        proxyServer = new RammerheadProxy({
+            logger,
+            loggerGetIP: config.getIP,
+            bindingAddress: HOST,
+            port: PORT,
+            crossDomainPort: null,
+            dontListen: false,
+            ssl: null,
+            getServerInfo: config.getServerInfo,
+            disableLocalStorageSync: config.disableLocalStorageSync,
+            diskJsCachePath: config.diskJsCachePath,
+            jsCacheSize: config.jsCacheSize
+        });
 
-    proxyServer.GET('/ping', (req, res) => {
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end('OK');
-    });
+        console.log('[INIT] RammerheadProxy created successfully');
 
-    if (config.publicDir) {
-        console.log('[INIT] Adding static directory:', config.publicDir);
-        addStaticDirToProxy(proxyServer, config.publicDir);
+        // Health check endpoints
+        proxyServer.GET('/health', (req, res) => {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            res.end('OK');
+        });
+
+        proxyServer.GET('/ping', (req, res) => {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            res.end('OK');
+        });
+
+        if (config.publicDir) {
+            console.log('[INIT] Adding static directory:', config.publicDir);
+            addStaticDirToProxy(proxyServer, config.publicDir);
+        }
+
+        console.log('[INIT] Creating session store...');
+        const sessionStore = new RammerheadSessionFileCache({
+            logger,
+            ...config.fileCacheSessionConfig
+        });
+        sessionStore.attachToProxy(proxyServer);
+
+        console.log('[INIT] Setting up pipeline...');
+        setupPipeline(proxyServer, sessionStore);
+
+        console.log('[INIT] Setting up routes...');
+        setupRoutes(proxyServer, sessionStore, logger);
+
+        // Close the temporary health check server once proxy is ready
+        healthCheckServer.close(() => {
+            console.log('[INIT] Closed temporary health check server');
+        });
+
+        console.log('[INIT] Initialization complete');
+        
+        setTimeout(() => {
+            console.log(`[READY] Server running on ${HOST}:${PORT}`);
+        }, 1000);
+
+    } catch (error) {
+        console.error('[FATAL] Initialization failed:', error);
+        logger.error('Initialization failed:', error);
+        process.exit(1);
     }
-
-    console.log('[INIT] Creating session store...');
-    const sessionStore = new RammerheadSessionFileCache({
-        logger,
-        ...config.fileCacheSessionConfig
-    });
-    sessionStore.attachToProxy(proxyServer);
-
-    console.log('[INIT] Setting up pipeline...');
-    setupPipeline(proxyServer, sessionStore);
-
-    console.log('[INIT] Setting up routes...');
-    setupRoutes(proxyServer, sessionStore, logger);
-
-    console.log('[INIT] Initialization complete');
-    console.log(`[READY] Server ready and listening on ${HOST}:${PORT}`);
-
-} catch (error) {
-    console.error('[FATAL] Initialization failed:', error);
-    logger.error('Initialization failed:', error);
-    process.exit(1);
-}
+}, 100);
 
 // Graceful shutdown handling
 function shutdown(signal) {
@@ -108,10 +124,22 @@ function shutdown(signal) {
     if (proxyServer) {
         try {
             proxyServer.close();
-        } catch (e) {}
+        } catch (e) {
+            console.error('[ERROR] Error closing proxy:', e);
+        }
+    }
+    if (healthCheckServer) {
+        try {
+            healthCheckServer.close();
+        } catch (e) {
+            console.error('[ERROR] Error closing health check server:', e);
+        }
     }
     process.exit(0);
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Keep the process alive
+setInterval(() => {}, 1000);
