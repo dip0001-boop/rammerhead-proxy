@@ -4,7 +4,9 @@ const PORT = Number(process.env.PORT) || 10000;
 
 module.exports = {
     bindingAddress: '0.0.0.0',
+
     port: PORT,
+
     crossDomainPort: null,
 
     publicDir: path.join(__dirname, '../public'),
@@ -77,12 +79,13 @@ module.exports = {
     generatePrefix: (level) =>
         `[${new Date().toISOString()}] [${level.toUpperCase()}] `,
 
-    getIP: (req) =>
-        (
+    getIP: (req) => {
+        return (
             req.headers['x-forwarded-for'] ||
             req.socket.remoteAddress ||
             ''
         )
             .split(',')[0]
-            .trim()
+            .trim();
+    }
 };
